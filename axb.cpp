@@ -57,22 +57,3 @@
 #undef LM_CNST
 #undef LM_REAL_EPSILON
 #endif /* LM_DBL_PREC */
-
-#ifdef LM_SNGL_PREC
-/* single precision (float) definitions */
-#define LM_REAL float
-#define LM_PREFIX s
-#define __SUBCNST(x) x##F
-#define LM_CNST(x) __SUBCNST(x) // force substitution
-#ifndef HAVE_LAPACK
-#define LM_REAL_EPSILON FLT_EPSILON
-#endif
-
-#include "axb_core.cpp"
-
-#undef LM_REAL
-#undef LM_PREFIX
-#undef __SUBCNST
-#undef LM_CNST
-#undef LM_REAL_EPSILON
-#endif /* LM_SNGL_PREC */
