@@ -258,15 +258,6 @@ int (*linsolver)(LM_REAL *A, LM_REAL *B, LM_REAL *x, int m)=NULL;
     }
     //p_L2=sqrt(p_L2);
 
-#if 0
-if(!(k%100)){
-  printf("Current estimate: ");
-  for(i=0; i<m; ++i)
-    printf("%.9g ", p[i]);
-  printf("-- errors %.9g %0.9g\n", jacTe_inf, p_eL2);
-}
-#endif
-
     /* check for convergence */
     if((jacTe_inf <= eps1)){
       Dp_L2=0.0; /* no increment for p in this case */
@@ -314,14 +305,7 @@ if(!(k%100)){
         (*func)(pDp, hx, m, n, adata); ++nfev; /* evaluate function at p + Dp */
         /* compute ||e(pDp)||_2 */
         /* ### hx=x-hx, pDp_eL2=||hx|| */
-#if 1
         pDp_eL2=LEVMAR_L2NRMXMY(hx, x, hx, n);
-#else
-        for(i=0, pDp_eL2=0.0; i<n; ++i){
-          hx[i]=tmp=x[i]-hx[i];
-          pDp_eL2+=tmp*tmp;
-        }
-#endif
         if(!LM_FINITE(pDp_eL2)){ /* sum of squares is not finite, most probably due to a user error.
                                   * This check makes sure that the inner loop does not run indefinitely.
                                   * Thanks to Steve Danauskas for reporting such cases
@@ -521,14 +505,7 @@ int (*linsolver)(LM_REAL *A, LM_REAL *B, LM_REAL *x, int m)=NULL;
   /* compute e=x - f(p) and its L2 norm */
   (*func)(p, hx, m, n, adata); nfev=1;
   /* ### e=x-hx, p_eL2=||e|| */
-#if 1
   p_eL2=LEVMAR_L2NRMXMY(e, x, hx, n);
-#else
-  for(i=0, p_eL2=0.0; i<n; ++i){
-    e[i]=tmp=x[i]-hx[i];
-    p_eL2+=tmp*tmp;
-  }
-#endif
   init_p_eL2=p_eL2;
   if(!LM_FINITE(p_eL2)) stop=7;
 
@@ -634,15 +611,6 @@ int (*linsolver)(LM_REAL *A, LM_REAL *B, LM_REAL *x, int m)=NULL;
       //p_L2=sqrt(p_L2);
     }
 
-#if 0
-if(!(k%100)){
-  printf("Current estimate: ");
-  for(i=0; i<m; ++i)
-    printf("%.9g ", p[i]);
-  printf("-- errors %.9g %0.9g\n", jacTe_inf, p_eL2);
-}
-#endif
-
     /* check for convergence */
     if((jacTe_inf <= eps1)){
       Dp_L2=0.0; /* no increment for p in this case */
@@ -690,14 +658,7 @@ if(!(k%100)){
       (*func)(pDp, wrk, m, n, adata); ++nfev; /* evaluate function at p + Dp */
       /* compute ||e(pDp)||_2 */
       /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
-#if 1
       pDp_eL2=LEVMAR_L2NRMXMY(wrk2, x, wrk, n);
-#else
-      for(i=0, pDp_eL2=0.0; i<n; ++i){
-        wrk2[i]=tmp=x[i]-wrk[i];
-        pDp_eL2+=tmp*tmp;
-      }
-#endif
       if(!LM_FINITE(pDp_eL2)){ /* sum of squares is not finite, most probably due to a user error.
                                 * This check makes sure that the loop terminates early in the case
                                 * of invalid input. Thanks to Steve Danauskas for suggesting it

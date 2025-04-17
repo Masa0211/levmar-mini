@@ -22,12 +22,6 @@
 #ifndef _LEVMAR_H_
 #define _LEVMAR_H_
 
-//////////////// added /////////////////
-
-#define LM_DBL_PREC 1     /* Enable double precision */
-#undef LM_SNGL_PREC       /* Disable single precision */
-///////////////////////////////////////
-
 
 /************************************* Start of configuration options *************************************/
 /* Note that when compiling with CMake, this configuration section is automatically generated

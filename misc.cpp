@@ -31,11 +31,6 @@
 #include "levmar.h"
 #include "misc.h"
 
-#if !defined(LM_DBL_PREC) && !defined(LM_SNGL_PREC)
-#error At least one of LM_DBL_PREC, LM_SNGL_PREC should be defined!
-#endif
-
-#ifdef LM_DBL_PREC
 /* double precision definitions */
 #define LM_REAL double
 #define LM_PREFIX d
@@ -49,4 +44,3 @@
 #undef LM_PREFIX
 #undef LM_REAL_EPSILON
 #undef LM_CNST
-#endif /* LM_DBL_PREC */
