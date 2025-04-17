@@ -31,10 +31,6 @@
 #include "levmar.h"
 #include "misc.h"
 
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
-
 #if !defined(LM_DBL_PREC) && !defined(LM_SNGL_PREC)
 #error At least one of LM_DBL_PREC, LM_SNGL_PREC should be defined!
 #endif

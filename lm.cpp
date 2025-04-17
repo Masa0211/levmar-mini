@@ -32,9 +32,6 @@
 #include "compiler.h"
 #include "misc.h"
 
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
 
 #define EPSILON       1E-12
 #define ONE_THIRD     0.3333333334 /* 1.0/3.0 */

@@ -36,19 +36,13 @@
 #error At least one of LM_DBL_PREC, LM_SNGL_PREC should be defined!
 #endif
 
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
-
 #ifdef LM_DBL_PREC
 /* double precision definitions */
 #define LM_REAL double
 #define LM_PREFIX d
 #define LM_CNST(x) (x)
-#ifndef HAVE_LAPACK
 #include <float.h>
 #define LM_REAL_EPSILON DBL_EPSILON
-#endif
 
 #include "axb_core.cpp"
 

@@ -20,10 +20,6 @@
 #ifndef _COMPILER_H_
 #define _COMPILER_H_
 
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
-
 /* note: intel's icc defines both __ICC & __INTEL_COMPILER.
  * Also, some compilers other than gcc define __GNUC__,
  * therefore gcc should be checked last

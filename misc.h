@@ -20,10 +20,6 @@
 #ifndef _MISC_H_
 #define _MISC_H_
 
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
-
 /* common suffix for LAPACK subroutines. Define empty in case of no prefix. */
 #define LM_LAPACK_SUFFIX _
 //#define LM_LAPACK_SUFFIX  // define empty

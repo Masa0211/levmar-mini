@@ -31,16 +31,7 @@
 #define LEVMAR_L2NRMXMY LM_ADD_PREFIX(levmar_L2nrmxmy)
 #define LEVMAR_COVAR LM_ADD_PREFIX(levmar_covar)
 
-#ifdef HAVE_LAPACK
-#define AX_EQ_B_LU LM_ADD_PREFIX(Ax_eq_b_LU)
-#define AX_EQ_B_CHOL LM_ADD_PREFIX(Ax_eq_b_Chol)
-#define AX_EQ_B_QR LM_ADD_PREFIX(Ax_eq_b_QR)
-#define AX_EQ_B_QRLS LM_ADD_PREFIX(Ax_eq_b_QRLS)
-#define AX_EQ_B_SVD LM_ADD_PREFIX(Ax_eq_b_SVD)
-#define AX_EQ_B_BK LM_ADD_PREFIX(Ax_eq_b_BK)
-#else
 #define AX_EQ_B_LU LM_ADD_PREFIX(Ax_eq_b_LU_noLapack)
-#endif /* HAVE_LAPACK */
 
 #ifdef HAVE_PLASMA
 #define AX_EQ_B_PLASMA_CHOL LM_ADD_PREFIX(Ax_eq_b_PLASMA_Chol)
@@ -297,28 +288,8 @@ if(!(k%100)){
         jacTjac[i*m+i]+=mu;
 
       /* solve augmented equations */
-#ifdef HAVE_LAPACK
-      /* 7 alternatives are available: LU, Cholesky + Cholesky with PLASMA, LDLt, 2 variants of QR decomposition and SVD.
-       * For matrices with dimensions of at least a few hundreds, the PLASMA implementation of Cholesky is the fastest.
-       * From the serial solvers, Cholesky is the fastest but might occasionally be inapplicable due to numerical round-off;
-       * QR is slower but more robust; SVD is the slowest but most robust; LU is quite robust but
-       * slower than LDLt; LDLt offers a good tradeoff between robustness and speed
-       */
-
-      issolved=AX_EQ_B_BK(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_BK;
-      //issolved=AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_LU;
-      //issolved=AX_EQ_B_CHOL(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_CHOL;
-#ifdef HAVE_PLASMA
-      //issolved=AX_EQ_B_PLASMA_CHOL(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_PLASMA_CHOL;
-#endif
-      //issolved=AX_EQ_B_QR(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_QR;
-      //issolved=AX_EQ_B_QRLS(jacTjac, jacTe, Dp, m, m); ++nlss; linsolver=(int (*)(LM_REAL *A, LM_REAL *B, LM_REAL *x, int m))AX_EQ_B_QRLS;
-      //issolved=AX_EQ_B_SVD(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_SVD;
-
-#else
       /* use the LU included with levmar */
       issolved=AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_LU;
-#endif /* HAVE_LAPACK */
 
       if(issolved){
         /* compute p's new estimate and ||Dp||^2 */
@@ -693,27 +664,8 @@ if(!(k%100)){
       jacTjac[i*m+i]+=mu;
 
     /* solve augmented equations */
-#ifdef HAVE_LAPACK
-    /* 7 alternatives are available: LU, Cholesky + Cholesky with PLASMA, LDLt, 2 variants of QR decomposition and SVD.
-     * For matrices with dimensions of at least a few hundreds, the PLASMA implementation of Cholesky is the fastest.
-     * From the serial solvers, Cholesky is the fastest but might occasionally be inapplicable due to numerical round-off;
-     * QR is slower but more robust; SVD is the slowest but most robust; LU is quite robust but
-     * slower than LDLt; LDLt offers a good tradeoff between robustness and speed
-     */
-
-    issolved=AX_EQ_B_BK(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_BK;
-    //issolved=AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_LU;
-    //issolved=AX_EQ_B_CHOL(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_CHOL;
-#ifdef HAVE_PLASMA
-    //issolved=AX_EQ_B_PLASMA_CHOL(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_PLASMA_CHOL;
-#endif
-    //issolved=AX_EQ_B_QR(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_QR;
-    //issolved=AX_EQ_B_QRLS(jacTjac, jacTe, Dp, m, m); ++nlss; linsolver=(int (*)(LM_REAL *A, LM_REAL *B, LM_REAL *x, int m))AX_EQ_B_QRLS;
-    //issolved=AX_EQ_B_SVD(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_SVD;
-#else
     /* use the LU included with levmar */
     issolved=AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver=AX_EQ_B_LU;
-#endif /* HAVE_LAPACK */
 
     if(issolved){
     /* compute p's new estimate and ||Dp||^2 */

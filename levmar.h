@@ -23,10 +23,6 @@
 #define _LEVMAR_H_
 
 //////////////// added /////////////////
-//#define HAVE_LAPACK 0     /* Disable LAPACK */
-#ifndef HAVE_LAPACK
-#undef HAVE_LAPACK
-#endif
 
 #define LM_DBL_PREC 1     /* Enable double precision */
 #undef LM_SNGL_PREC       /* Disable single precision */

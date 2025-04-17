@@ -34,42 +34,10 @@
 #define LEVMAR_BOX_CHECK LM_ADD_PREFIX(levmar_box_check)
 #define LEVMAR_L2NRMXMY LM_ADD_PREFIX(levmar_L2nrmxmy)
 
-#ifdef HAVE_LAPACK
-#define LEVMAR_PSEUDOINVERSE LM_ADD_PREFIX(levmar_pseudoinverse)
-static int LEVMAR_PSEUDOINVERSE(LM_REAL *A, LM_REAL *B, int m);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* BLAS matrix multiplication, LAPACK SVD & Cholesky routines */
-#define GEMM LM_MK_BLAS_NAME(gemm)
-/* C := alpha*op( A )*op( B ) + beta*C */
-extern void GEMM(char *transa, char *transb, int *m, int *n, int *k,
-          LM_REAL *alpha, LM_REAL *a, int *lda, LM_REAL *b, int *ldb, LM_REAL *beta, LM_REAL *c, int *ldc);
-
-#define GESVD LM_MK_LAPACK_NAME(gesvd)
-#define GESDD LM_MK_LAPACK_NAME(gesdd)
-extern int GESVD(char *jobu, char *jobvt, int *m, int *n, LM_REAL *a, int *lda, LM_REAL *s, LM_REAL *u, int *ldu,
-                 LM_REAL *vt, int *ldvt, LM_REAL *work, int *lwork, int *info);
-
-/* lapack 3.0 new SVD routine, faster than xgesvd() */
-extern int GESDD(char *jobz, int *m, int *n, LM_REAL *a, int *lda, LM_REAL *s, LM_REAL *u, int *ldu, LM_REAL *vt, int *ldvt,
-                 LM_REAL *work, int *lwork, int *iwork, int *info);
-
-/* Cholesky decomposition */
-#define POTF2 LM_MK_LAPACK_NAME(potf2)
-extern int POTF2(char *uplo, int *n, LM_REAL *a, int *lda, int *info);
-#ifdef __cplusplus
-}
-#endif
-
-#define LEVMAR_CHOLESKY LM_ADD_PREFIX(levmar_chol)
-
-#else /* !HAVE_LAPACK */
 #define LEVMAR_LUINVERSE LM_ADD_PREFIX(levmar_LUinverse_noLapack)
 
 static int LEVMAR_LUINVERSE(LM_REAL *A, LM_REAL *B, int m);
-#endif /* HAVE_LAPACK */
 
 /* blocked multiplication of the transpose of the nxm matrix a with itself (i.e. a^T a)
  * using a block size of bsize. The product is returned in b.
@@ -81,17 +49,6 @@ static int LEVMAR_LUINVERSE(LM_REAL *A, LM_REAL *B, int m);
  */
 void LEVMAR_TRANS_MAT_MAT_MULT(LM_REAL *a, LM_REAL *b, int n, int m)
 {
-#ifdef HAVE_LAPACK /* use BLAS matrix multiply */
-
-LM_REAL alpha=LM_CNST(1.0), beta=LM_CNST(0.0);
-  /* Fool BLAS to compute a^T*a avoiding transposing a: a is equivalent to a^T in column major,
-   * therefore BLAS computes a*a^T with a and a*a^T in column major, which is equivalent to
-   * computing a^T*a in row major!
-   */
-  GEMM("N", "T", &m, &m, &n, &alpha, a, &m, a, &m, &beta, b, &m);
-
-#else /* no LAPACK, use blocking-based multiply */
-
 int i, j, k, jj, kk;
 LM_REAL sum, *bim, *akm;
 const int bsize=__BLOCKSZ__;
@@ -130,7 +87,6 @@ const int bsize=__BLOCKSZ__;
 #undef __MIN__
 #undef __MAX__
 
-#endif /* HAVE_LAPACK */
 }
 
 /* forward finite difference approximation to the Jacobian of func */
@@ -320,97 +276,6 @@ int fvec_sz=n, fjac_sz=n*m, pp_sz=m, fvecp_sz=n;
   return;
 }
 
-#ifdef HAVE_LAPACK
-/*
- * This function computes the pseudoinverse of a square matrix A
- * into B using SVD. A and B can coincide
- * 
- * The function returns 0 in case of error (e.g. A is singular),
- * the rank of A if successful
- *
- * A, B are mxm
- *
- */
-static int LEVMAR_PSEUDOINVERSE(LM_REAL *A, LM_REAL *B, int m)
-{
-LM_REAL *buf=NULL;
-int buf_sz=0;
-static LM_REAL eps=LM_CNST(-1.0);
-
-register int i, j;
-LM_REAL *a, *u, *s, *vt, *work;
-int a_sz, u_sz, s_sz, vt_sz, tot_sz;
-LM_REAL thresh, one_over_denom;
-int info, rank, worksz, *iwork, iworksz;
-   
-  /* calculate required memory size */
-  worksz=5*m; // min worksize for GESVD
-  //worksz=m*(7*m+4); // min worksize for GESDD
-  iworksz=8*m;
-  a_sz=m*m;
-  u_sz=m*m; s_sz=m; vt_sz=m*m;
-
-  tot_sz=(a_sz + u_sz + s_sz + vt_sz + worksz)*sizeof(LM_REAL) + iworksz*sizeof(int); /* should be arranged in that order for proper doubles alignment */
-
-    buf_sz=tot_sz;
-    buf=(LM_REAL *)malloc(buf_sz);
-    if(!buf){
-      fprintf(stderr, RCAT("memory allocation in ", LEVMAR_PSEUDOINVERSE) "() failed!\n");
-      return 0; /* error */
-    }
-
-  a=buf;
-  u=a+a_sz;
-  s=u+u_sz;
-  vt=s+s_sz;
-  work=vt+vt_sz;
-  iwork=(int *)(work+worksz);
-
-  /* store A (column major!) into a */
-  for(i=0; i<m; i++)
-    for(j=0; j<m; j++)
-      a[i+j*m]=A[i*m+j];
-
-  /* SVD decomposition of A */
-  GESVD("A", "A", (int *)&m, (int *)&m, a, (int *)&m, s, u, (int *)&m, vt, (int *)&m, work, (int *)&worksz, &info);
-  //GESDD("A", (int *)&m, (int *)&m, a, (int *)&m, s, u, (int *)&m, vt, (int *)&m, work, (int *)&worksz, iwork, &info);
-
-  /* error treatment */
-  if(info!=0){
-    if(info<0){
-      fprintf(stderr, RCAT(RCAT(RCAT("LAPACK error: illegal value for argument %d of ", GESVD), "/" GESDD) " in ", LEVMAR_PSEUDOINVERSE) "()\n", -info);
-    }
-    else{
-      fprintf(stderr, RCAT("LAPACK error: dgesdd (dbdsdc)/dgesvd (dbdsqr) failed to converge in ", LEVMAR_PSEUDOINVERSE) "() [info=%d]\n", info);
-    }
-    free(buf);
-    return 0;
-  }
-
-  if(eps<0.0){
-    LM_REAL aux;
-
-    /* compute machine epsilon */
-    for(eps=LM_CNST(1.0); aux=eps+LM_CNST(1.0), aux-LM_CNST(1.0)>0.0; eps*=LM_CNST(0.5))
-                                          ;
-    eps*=LM_CNST(2.0);
-  }
-
-  /* compute the pseudoinverse in B */
-	for(i=0; i<a_sz; i++) B[i]=0.0; /* initialize to zero */
-  for(rank=0, thresh=eps*s[0]; rank<m && s[rank]>thresh; rank++){
-    one_over_denom=LM_CNST(1.0)/s[rank];
-
-    for(j=0; j<m; j++)
-      for(i=0; i<m; i++)
-        B[i*m+j]+=vt[rank+i*m]*u[j+rank*m]*one_over_denom;
-  }
-
-  free(buf);
-
-	return rank;
-}
-#else // no LAPACK
 
 /*
  * This function computes the inverse of A in B. A and B can coincide
@@ -540,7 +405,6 @@ LM_REAL *a, *x, *work, max, sum, tmp;
 
   return 1;
 }
-#endif /* HAVE_LAPACK */
 
 /*
  * This function computes in C the covariance matrix corresponding to a least
@@ -566,22 +430,6 @@ int LEVMAR_COVAR(LM_REAL *JtJ, LM_REAL *C, LM_REAL sumsq, int m, int n)
 int i;
 int rnk;
 LM_REAL fact;
-
-#ifdef HAVE_LAPACK
-   rnk=LEVMAR_PSEUDOINVERSE(JtJ, C, m);
-   if(!rnk) return 0;
-#else
-#ifdef _MSC_VER
-#pragma message("LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times")
-#else
-#warning LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times
-#endif // _MSC_VER
-
-   rnk=LEVMAR_LUINVERSE(JtJ, C, m);
-   if(!rnk) return 0;
-
-   rnk=m; /* assume full rank */
-#endif /* HAVE_LAPACK */
 
    fact=sumsq/(LM_REAL)(n-rnk);
    for(i=0; i<m*m; ++i)
@@ -669,46 +517,6 @@ int i;
 
   return 1;
 }
-
-#ifdef HAVE_LAPACK
-
-/* compute the Cholesky decomposition of C in W, s.t. C=W^t W and W is upper triangular */
-int LEVMAR_CHOLESKY(LM_REAL *C, LM_REAL *W, int m)
-{
-register int i, j;
-int info;
-
-  /* copy weights array C to W so that LAPACK won't destroy it;
-   * C is assumed symmetric, hence no transposition is needed
-   */
-  for(i=0, j=m*m; i<j; ++i)
-    W[i]=C[i];
-
-  /* Cholesky decomposition */
-  POTF2("L", (int *)&m, W, (int *)&m, (int *)&info);
-  /* error treatment */
-  if(info!=0){
-		if(info<0){
-      fprintf(stderr, "LAPACK error: illegal value for argument %d of dpotf2 in %s\n", -info, LCAT(LEVMAR_CHOLESKY, "()"));
-		}
-		else{
-			fprintf(stderr, "LAPACK error: the leading minor of order %d is not positive definite,\n%s()\n", info,
-						RCAT("and the Cholesky factorization could not be completed in ", LEVMAR_CHOLESKY));
-		}
-    return LM_ERROR;
-  }
-
-  /* the decomposition is in the lower part of W (in column-major order!).
-   * zeroing the upper part makes it lower triangular which is equivalent to
-   * upper triangular in row-major order
-   */
-  for(i=0; i<m; i++)
-    for(j=i+1; j<m; j++)
-      W[i+j*m]=0.0;
-
-  return 0;
-}
-#endif /* HAVE_LAPACK */
 
 
 /* Compute e=x-y for two n-vectors x and y and return the squared L2 norm of e.
