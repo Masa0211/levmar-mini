@@ -27,12 +27,6 @@
 /* Note that when compiling with CMake, this configuration section is automatically generated
  * based on the user's input, see levmar.h.in
  */
-
-/* specifies whether to use LAPACK or not. Using LAPACK is strongly recommended */
-/* #undef HAVE_LAPACK */
-
-/* specifies whether the PLASMA parallel library for multicore CPUs is available */
-/* #undef HAVE_PLASMA */
                       
 /* to avoid the overhead of repeated mallocs(), routines in axb.cpp can be instructed to
  * retain working memory between calls. Such a choice, however, renders these routines
@@ -129,11 +123,6 @@ extern int dlevmar_bc_dif(
 
 extern int dAx_eq_b_LU_noLapack(double *A, double *B, double *x, int n);
 
-
-#ifdef HAVE_PLASMA
-extern int dAx_eq_b_PLASMA_Chol(double *A, double *B, double *x, int m);
-extern void levmar_PLASMA_setnbcores(int cores);
-#endif /* HAVE_PLASMA */
 
 /* Jacobian verification, double & single precision */
 extern void dlevmar_chkjac(
