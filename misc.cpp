@@ -35,24 +35,6 @@
 #error At least one of LM_DBL_PREC, LM_SNGL_PREC should be defined!
 #endif
 
-#ifdef LM_SNGL_PREC
-/* single precision (float) definitions */
-#define LM_REAL float
-#define LM_PREFIX s
-
-#define LM_REAL_EPSILON FLT_EPSILON
-#define __SUBCNST(x) x##F
-#define LM_CNST(x) __SUBCNST(x) // force substitution
-
-#include "misc_core.c" // read in core code
-
-#undef LM_REAL
-#undef LM_PREFIX
-#undef LM_REAL_EPSILON
-#undef __SUBCNST
-#undef LM_CNST
-#endif /* LM_SNGL_PREC */
-
 #ifdef LM_DBL_PREC
 /* double precision definitions */
 #define LM_REAL double

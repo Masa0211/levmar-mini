@@ -431,6 +431,17 @@ int i;
 int rnk;
 LM_REAL fact;
 
+#ifdef _MSC_VER
+#pragma message("LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times")
+#else
+#warning LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times
+#endif // _MSC_VER
+
+    rnk = LEVMAR_LUINVERSE(JtJ, C, m);
+    if (!rnk) return 0;
+
+    rnk = m; /* assume full rank */
+
    fact=sumsq/(LM_REAL)(n-rnk);
    for(i=0; i<m*m; ++i)
      C[i]*=fact;
