@@ -52,35 +52,11 @@
 extern "C" {
 #endif
 
-/* work arrays size for ?levmar_der and ?levmar_dif functions.
+/* work arrays size for dlevmar_der and dlevmar_dif functions.
  * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
  */
 #define LM_DER_WORKSZ(npar, nmeas) (2*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
 #define LM_DIF_WORKSZ(npar, nmeas) (4*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
-
-/* work arrays size for ?levmar_bc_der and ?levmar_bc_dif functions.
- * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
- */
-#define LM_BC_DER_WORKSZ(npar, nmeas) (2*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
-#define LM_BC_DIF_WORKSZ(npar, nmeas) LM_BC_DER_WORKSZ((npar), (nmeas)) /* LEVMAR_BC_DIF currently implemented using LEVMAR_BC_DER()! */
-
-/* work arrays size for ?levmar_lec_der and ?levmar_lec_dif functions.
- * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
- */
-#define LM_LEC_DER_WORKSZ(npar, nmeas, nconstr) LM_DER_WORKSZ((npar)-(nconstr), (nmeas))
-#define LM_LEC_DIF_WORKSZ(npar, nmeas, nconstr) LM_DIF_WORKSZ((npar)-(nconstr), (nmeas))
-
-/* work arrays size for ?levmar_blec_der and ?levmar_blec_dif functions.
- * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
- */
-#define LM_BLEC_DER_WORKSZ(npar, nmeas, nconstr) LM_LEC_DER_WORKSZ((npar), (nmeas)+(npar), (nconstr))
-#define LM_BLEC_DIF_WORKSZ(npar, nmeas, nconstr) LM_LEC_DIF_WORKSZ((npar), (nmeas)+(npar), (nconstr))
-
-/* work arrays size for ?levmar_bleic_der and ?levmar_bleic_dif functions.
- * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
- */
-#define LM_BLEIC_DER_WORKSZ(npar, nmeas, nconstr1, nconstr2) LM_BLEC_DER_WORKSZ((npar)+(nconstr2), (nmeas)+(nconstr2), (nconstr1)+(nconstr2))
-#define LM_BLEIC_DIF_WORKSZ(npar, nmeas, nconstr1, nconstr2) LM_BLEC_DIF_WORKSZ((npar)+(nconstr2), (nmeas)+(nconstr2), (nconstr1)+(nconstr2))
 
 #define LM_OPTS_SZ    	 5 /* max(4, 5) */
 #define LM_INFO_SZ    	 10
@@ -103,36 +79,7 @@ extern int dlevmar_dif(
       double *p, double *x, int m, int n, int itmax, double *opts,
       double *info, double *work, double *covar, void *adata);
 
-/* box-constrained minimization */
-extern int dlevmar_bc_der(
-       void (*func)(double *p, double *hx, int m, int n, void *adata),
-       void (*jacf)(double *p, double *j, int m, int n, void *adata),  
-       double *p, double *x, int m, int n, double *lb, double *ub, double *dscl,
-       int itmax, double *opts, double *info, double *work, double *covar, void *adata);
-
-extern int dlevmar_bc_dif(
-       void (*func)(double *p, double *hx, int m, int n, void *adata),
-       double *p, double *x, int m, int n, double *lb, double *ub, double *dscl,
-       int itmax, double *opts, double *info, double *work, double *covar, void *adata);
-
-
 extern int dAx_eq_b_LU_noLapack(double *A, double *B, double *x, int n);
-
-
-/* Jacobian verification, double & single precision */
-extern void dlevmar_chkjac(
-    void (*func)(double *p, double *hx, int m, int n, void *adata),
-    void (*jacf)(double *p, double *j, int m, int n, void *adata),
-    double *p, int m, int n, void *adata, double *err);
-
-
-/* miscellaneous: standard deviation, coefficient of determination (R2),
- *                Pearson's correlation coefficient for best-fit parameters
- */
-extern double dlevmar_stddev( double *covar, int m, int i);
-extern double dlevmar_corcoef(double *covar, int m, int i, int j);
-extern double dlevmar_R2(void (*func)(double *p, double *hx, int m, int n, void *adata), double *p, double *x, int m, int n, void *adata);
-
 
 #ifdef __cplusplus
 }

@@ -33,29 +33,13 @@
 
 /* double precision definitions */
 #define LM_REAL double
-#define LM_PREFIX d
 
 #define LM_REAL_EPSILON DBL_EPSILON
 #define LM_CNST(x) (x)
 
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
-/* precision-specific definitions */
-#define LEVMAR_CHKJAC LM_ADD_PREFIX(levmar_chkjac)
-#define LEVMAR_FDIF_FORW_JAC_APPROX LM_ADD_PREFIX(levmar_fdif_forw_jac_approx)
-#define LEVMAR_FDIF_CENT_JAC_APPROX LM_ADD_PREFIX(levmar_fdif_cent_jac_approx)
-#define LEVMAR_TRANS_MAT_MAT_MULT LM_ADD_PREFIX(levmar_trans_mat_mat_mult)
-#define LEVMAR_COVAR LM_ADD_PREFIX(levmar_covar)
-#define LEVMAR_STDDEV LM_ADD_PREFIX(levmar_stddev)
-#define LEVMAR_CORCOEF LM_ADD_PREFIX(levmar_corcoef)
-#define LEVMAR_R2 LM_ADD_PREFIX(levmar_R2)
-#define LEVMAR_BOX_CHECK LM_ADD_PREFIX(levmar_box_check)
-#define LEVMAR_L2NRMXMY LM_ADD_PREFIX(levmar_L2nrmxmy)
-
-
-#define LEVMAR_LUINVERSE LM_ADD_PREFIX(levmar_LUinverse_noLapack)
-
-static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m);
+static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m);
 
 /* blocked multiplication of the transpose of the nxm matrix a with itself (i.e. a^T a)
  * using a block size of bsize. The product is returned in b.
@@ -65,7 +49,7 @@ static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m);
  * More details on blocking can be found at
  * http://www-2.cs.cmu.edu/afs/cs/academic/class/15213-f02/www/R07/section_a/Recitation07-SectionA.pdf
  */
-void LEVMAR_TRANS_MAT_MAT_MULT(LM_REAL* a, LM_REAL* b, int n, int m)
+void dlevmar_trans_mat_mat_mult(LM_REAL* a, LM_REAL* b, int n, int m)
 {
     int i, j, k, jj, kk;
     LM_REAL sum, * bim, * akm;
@@ -108,7 +92,7 @@ void LEVMAR_TRANS_MAT_MAT_MULT(LM_REAL* a, LM_REAL* b, int n, int m)
 }
 
 /* forward finite difference approximation to the Jacobian of func */
-void LEVMAR_FDIF_FORW_JAC_APPROX(
+void dlevmar_fdif_forw_jac_approx(
     void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
     /* function to differentiate */
     LM_REAL* p,              /* I: current parameter estimate, mx1 */
@@ -146,7 +130,7 @@ void LEVMAR_FDIF_FORW_JAC_APPROX(
 }
 
 /* central finite difference approximation to the Jacobian of func */
-void LEVMAR_FDIF_CENT_JAC_APPROX(
+void dlevmar_fdif_cent_jac_approx(
     void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
     /* function to differentiate */
     LM_REAL* p,              /* I: current parameter estimate, mx1 */
@@ -221,78 +205,78 @@ void LEVMAR_FDIF_CENT_JAC_APPROX(
  * other value which may cause loss of significance.
  */
 
-void LEVMAR_CHKJAC(
-    void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
-    void (*jacf)(LM_REAL* p, LM_REAL* j, int m, int n, void* adata),
-    LM_REAL* p, int m, int n, void* adata, LM_REAL* err)
-{
-    LM_REAL factor = LM_CNST(100.0);
-    LM_REAL one = LM_CNST(1.0);
-    LM_REAL zero = LM_CNST(0.0);
-    LM_REAL* fvec, * fjac, * pp, * fvecp, * buf;
-
-    int i, j;
-    LM_REAL eps, epsf, temp, epsmch;
-    LM_REAL epslog;
-    int fvec_sz = n, fjac_sz = n * m, pp_sz = m, fvecp_sz = n;
-
-    epsmch = LM_REAL_EPSILON;
-    eps = (LM_REAL)sqrt(epsmch);
-
-    buf = (LM_REAL*)malloc((fvec_sz + fjac_sz + pp_sz + fvecp_sz) * sizeof(LM_REAL));
-    if (!buf) {
-        fprintf(stderr, LCAT(LEVMAR_CHKJAC, "(): memory allocation request failed\n"));
-        exit(1);
-    }
-    fvec = buf;
-    fjac = fvec + fvec_sz;
-    pp = fjac + fjac_sz;
-    fvecp = pp + pp_sz;
-
-    /* compute fvec=func(p) */
-    (*func)(p, fvec, m, n, adata);
-
-    /* compute the Jacobian at p */
-    (*jacf)(p, fjac, m, n, adata);
-
-    /* compute pp */
-    for (j = 0; j < m; ++j) {
-        temp = eps * FABS(p[j]);
-        if (temp == zero) temp = eps;
-        pp[j] = p[j] + temp;
-    }
-
-    /* compute fvecp=func(pp) */
-    (*func)(pp, fvecp, m, n, adata);
-
-    epsf = factor * epsmch;
-    epslog = (LM_REAL)log10(eps);
-
-    for (i = 0; i < n; ++i)
-        err[i] = zero;
-
-    for (j = 0; j < m; ++j) {
-        temp = FABS(p[j]);
-        if (temp == zero) temp = one;
-
-        for (i = 0; i < n; ++i)
-            err[i] += temp * fjac[i * m + j];
-    }
-
-    for (i = 0; i < n; ++i) {
-        temp = one;
-        if (fvec[i] != zero && fvecp[i] != zero && FABS(fvecp[i] - fvec[i]) >= epsf * FABS(fvec[i]))
-            temp = eps * FABS((fvecp[i] - fvec[i]) / eps - err[i]) / (FABS(fvec[i]) + FABS(fvecp[i]));
-        err[i] = one;
-        if (temp > epsmch && temp < eps)
-            err[i] = ((LM_REAL)log10(temp) - epslog) / epslog;
-        if (temp >= eps) err[i] = zero;
-    }
-
-    free(buf);
-
-    return;
-}
+//void LEVMAR_CHKJAC(
+//    void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
+//    void (*jacf)(LM_REAL* p, LM_REAL* j, int m, int n, void* adata),
+//    LM_REAL* p, int m, int n, void* adata, LM_REAL* err)
+//{
+//    LM_REAL factor = LM_CNST(100.0);
+//    LM_REAL one = LM_CNST(1.0);
+//    LM_REAL zero = LM_CNST(0.0);
+//    LM_REAL* fvec, * fjac, * pp, * fvecp, * buf;
+//
+//    int i, j;
+//    LM_REAL eps, epsf, temp, epsmch;
+//    LM_REAL epslog;
+//    int fvec_sz = n, fjac_sz = n * m, pp_sz = m, fvecp_sz = n;
+//
+//    epsmch = LM_REAL_EPSILON;
+//    eps = (LM_REAL)sqrt(epsmch);
+//
+//    buf = (LM_REAL*)malloc((fvec_sz + fjac_sz + pp_sz + fvecp_sz) * sizeof(LM_REAL));
+//    if (!buf) {
+//        fprintf(stderr, LCAT(LEVMAR_CHKJAC, "(): memory allocation request failed\n"));
+//        exit(1);
+//    }
+//    fvec = buf;
+//    fjac = fvec + fvec_sz;
+//    pp = fjac + fjac_sz;
+//    fvecp = pp + pp_sz;
+//
+//    /* compute fvec=func(p) */
+//    (*func)(p, fvec, m, n, adata);
+//
+//    /* compute the Jacobian at p */
+//    (*jacf)(p, fjac, m, n, adata);
+//
+//    /* compute pp */
+//    for (j = 0; j < m; ++j) {
+//        temp = eps * FABS(p[j]);
+//        if (temp == zero) temp = eps;
+//        pp[j] = p[j] + temp;
+//    }
+//
+//    /* compute fvecp=func(pp) */
+//    (*func)(pp, fvecp, m, n, adata);
+//
+//    epsf = factor * epsmch;
+//    epslog = (LM_REAL)log10(eps);
+//
+//    for (i = 0; i < n; ++i)
+//        err[i] = zero;
+//
+//    for (j = 0; j < m; ++j) {
+//        temp = FABS(p[j]);
+//        if (temp == zero) temp = one;
+//
+//        for (i = 0; i < n; ++i)
+//            err[i] += temp * fjac[i * m + j];
+//    }
+//
+//    for (i = 0; i < n; ++i) {
+//        temp = one;
+//        if (fvec[i] != zero && fvecp[i] != zero && FABS(fvecp[i] - fvec[i]) >= epsf * FABS(fvec[i]))
+//            temp = eps * FABS((fvecp[i] - fvec[i]) / eps - err[i]) / (FABS(fvec[i]) + FABS(fvecp[i]));
+//        err[i] = one;
+//        if (temp > epsmch && temp < eps)
+//            err[i] = ((LM_REAL)log10(temp) - epslog) / epslog;
+//        if (temp >= eps) err[i] = zero;
+//    }
+//
+//    free(buf);
+//
+//    return;
+//}
 
 
 /*
@@ -306,7 +290,7 @@ void LEVMAR_CHKJAC(
  * The function returns 0 in case of error, 1 if successful
  *
  */
-static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m)
+static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
 {
     void* buf = NULL;
     int buf_sz = 0;
@@ -325,7 +309,7 @@ static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m)
     buf_sz = tot_sz;
     buf = (void*)malloc(tot_sz);
     if (!buf) {
-        fprintf(stderr, RCAT("memory allocation in ", LEVMAR_LUINVERSE) "() failed!\n");
+        fprintf(stderr, "memory allocation in dlevmar_LUinverse_noLapack() failed!\n");
         return 0; /* error */
     }
 
@@ -344,7 +328,7 @@ static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m)
             if ((tmp = FABS(a[i * m + j])) > max)
                 max = tmp;
         if (max == 0.0) {
-            fprintf(stderr, RCAT("Singular matrix A in ", LEVMAR_LUINVERSE) "()!\n");
+            fprintf(stderr, "Singular matrix A in dlevmar_LUinverse_noLapack()!\n");
             free(buf);
 
             return 0;
@@ -443,19 +427,13 @@ static int LEVMAR_LUINVERSE(LM_REAL* A, LM_REAL* B, int m)
  * A and C are mxm
  *
  */
-int LEVMAR_COVAR(LM_REAL* JtJ, LM_REAL* C, LM_REAL sumsq, int m, int n)
+int dlevmar_covar(LM_REAL* JtJ, LM_REAL* C, LM_REAL sumsq, int m, int n)
 {
     int i;
     int rnk;
     LM_REAL fact;
 
-#ifdef _MSC_VER
-#pragma message("LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times")
-#else
-    #warning LAPACK not available, LU will be used for matrix inversion when computing the covariance; this might be unstable at times
-#endif // _MSC_VER
-
-        rnk = LEVMAR_LUINVERSE(JtJ, C, m);
+    rnk = dlevmar_LUinverse_noLapack(JtJ, C, m);
     if (!rnk) return 0;
 
     rnk = m; /* assume full rank */
@@ -467,87 +445,6 @@ int LEVMAR_COVAR(LM_REAL* JtJ, LM_REAL* C, LM_REAL sumsq, int m, int n)
     return rnk;
 }
 
-/*  standard deviation of the best-fit parameter i.
- *  covar is the mxm covariance matrix of the best-fit parameters (see also LEVMAR_COVAR()).
- *
- *  The standard deviation is computed as \sigma_{i} = \sqrt{C_{ii}}
- */
-LM_REAL LEVMAR_STDDEV(LM_REAL* covar, int m, int i)
-{
-    return (LM_REAL)sqrt(covar[i * m + i]);
-}
-
-/* Pearson's correlation coefficient of the best-fit parameters i and j.
- * covar is the mxm covariance matrix of the best-fit parameters (see also LEVMAR_COVAR()).
- *
- * The coefficient is computed as \rho_{ij} = C_{ij} / sqrt(C_{ii} C_{jj})
- */
-LM_REAL LEVMAR_CORCOEF(LM_REAL* covar, int m, int i, int j)
-{
-    return (LM_REAL)(covar[i * m + j] / sqrt(covar[i * m + i] * covar[j * m + j]));
-}
-
-/* coefficient of determination.
- * see  http://en.wikipedia.org/wiki/Coefficient_of_determination
- */
-LM_REAL LEVMAR_R2(void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
-    LM_REAL* p, LM_REAL* x, int m, int n, void* adata)
-{
-    int i;
-    LM_REAL tmp;
-    LM_REAL SSerr,  // sum of squared errors, i.e. residual sum of squares \sum_i (x_i-hx_i)^2 
-        SStot, // \sum_i (x_i-xavg)^2
-        * hx, xavg;
-
-
-    if ((hx = (LM_REAL*)malloc(n * sizeof(LM_REAL))) == NULL) {
-        fprintf(stderr, RCAT("memory allocation request failed in ", LEVMAR_R2) "()\n");
-        exit(1);
-    }
-
-    /* hx=f(p) */
-    (*func)(p, hx, m, n, adata);
-
-    for (i = n, tmp = 0.0; i-- > 0; )
-        tmp += x[i];
-    xavg = tmp / (LM_REAL)n;
-
-    if (x)
-        for (i = n, SSerr = SStot = 0.0; i-- > 0; ) {
-            tmp = x[i] - hx[i];
-            SSerr += tmp * tmp;
-
-            tmp = x[i] - xavg;
-            SStot += tmp * tmp;
-        }
-    else /* x==0 */
-        for (i = n, SSerr = SStot = 0.0; i-- > 0; ) {
-            tmp = -hx[i];
-            SSerr += tmp * tmp;
-
-            tmp = -xavg;
-            SStot += tmp * tmp;
-        }
-
-    free(hx);
-
-    return LM_CNST(1.0) - SSerr / SStot;
-}
-
-/* check box constraints for consistency */
-int LEVMAR_BOX_CHECK(LM_REAL* lb, LM_REAL* ub, int m)
-{
-    int i;
-
-    if (!lb || !ub) return 1;
-
-    for (i = 0; i < m; ++i)
-        if (lb[i] > ub[i]) return 0;
-
-    return 1;
-}
-
-
 /* Compute e=x-y for two n-vectors x and y and return the squared L2 norm of e.
  * e can coincide with either x or y; x can be NULL, in which case it is assumed
  * to be equal to the zero vector.
@@ -555,7 +452,7 @@ int LEVMAR_BOX_CHECK(LM_REAL* lb, LM_REAL* ub, int m)
  * stalls and increase instruction-level parallelism; see http://www.abarnett.demon.co.uk/tutorial.html
  */
 
-LM_REAL LEVMAR_L2NRMXMY(LM_REAL* e, LM_REAL* x, LM_REAL* y, int n)
+LM_REAL dlevmar_L2nrmxmy(LM_REAL* e, LM_REAL* x, LM_REAL* y, int n)
 {
     const int blocksize = 8, bpwr = 3; /* 8=2^3 */
     int i;
@@ -649,22 +546,9 @@ LM_REAL LEVMAR_L2NRMXMY(LM_REAL* e, LM_REAL* x, LM_REAL* y, int n)
 #undef GESDD
 #undef GEMM
 #undef LEVMAR_PSEUDOINVERSE
-#undef LEVMAR_LUINVERSE
-#undef LEVMAR_BOX_CHECK
-#undef LEVMAR_CHOLESKY
-#undef LEVMAR_COVAR
-#undef LEVMAR_STDDEV
-#undef LEVMAR_CORCOEF
-#undef LEVMAR_R2
-#undef LEVMAR_CHKJAC
-#undef LEVMAR_FDIF_FORW_JAC_APPROX
-#undef LEVMAR_FDIF_CENT_JAC_APPROX
-#undef LEVMAR_TRANS_MAT_MAT_MULT
-#undef LEVMAR_L2NRMXMY
 
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
 #undef LM_REAL
-#undef LM_PREFIX
 #undef LM_REAL_EPSILON
 #undef LM_CNST

@@ -38,7 +38,6 @@
 
 /* double precision definitions */
 #define LM_REAL double
-#define LM_PREFIX d
 
 #define LM_REAL_MAX DBL_MAX
 #define LM_REAL_MIN -DBL_MAX
@@ -46,17 +45,6 @@
 #define LM_CNST(x) (x)
 
 // ------------------------------------ misc_core.cpp ------------------------------------ //
-
-/* precision-specific definitions */
-#define LEVMAR_DER LM_ADD_PREFIX(levmar_der)
-#define LEVMAR_DIF LM_ADD_PREFIX(levmar_dif)
-#define LEVMAR_FDIF_FORW_JAC_APPROX LM_ADD_PREFIX(levmar_fdif_forw_jac_approx)
-#define LEVMAR_FDIF_CENT_JAC_APPROX LM_ADD_PREFIX(levmar_fdif_cent_jac_approx)
-#define LEVMAR_TRANS_MAT_MAT_MULT LM_ADD_PREFIX(levmar_trans_mat_mat_mult)
-#define LEVMAR_L2NRMXMY LM_ADD_PREFIX(levmar_L2nrmxmy)
-#define LEVMAR_COVAR LM_ADD_PREFIX(levmar_covar)
-
-#define AX_EQ_B_LU LM_ADD_PREFIX(Ax_eq_b_LU_noLapack)
 
 /*
  * This function seeks the parameter vector p that best describes the measurements vector x.
@@ -73,7 +61,7 @@
  * non-linear least squares at http://www.imm.dtu.dk/pubdb/views/edoc_download.php/3215/pdf/imm3215.pdf
  */
 
-int LEVMAR_DER(
+int dlevmar_der(
     void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata), /* functional relation describing measurements. A p \in R^m yields a \hat{x} \in  R^n */
     void (*jacf)(LM_REAL* p, LM_REAL* j, int m, int n, void* adata),  /* function to evaluate the Jacobian \part x / \part p */
     LM_REAL* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
@@ -131,13 +119,13 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     mu = jacTe_inf = 0.0; /* -Wall */
 
     if (n < m) {
-        fprintf(stderr, LCAT(LEVMAR_DER, "(): cannot solve a problem with fewer measurements [%d] than unknowns [%d]\n"), n, m);
+        fprintf(stderr, "dlevmar_der() : cannot solve a problem with fewer measurements[% d] than unknowns[% d]\n", n, m);
         return LM_ERROR;
     }
 
     if (!jacf) {
-        fprintf(stderr, RCAT("No function specified for computing the Jacobian in ", LEVMAR_DER)
-            RCAT("().\nIf no such function is available, use ", LEVMAR_DIF) RCAT("() rather than ", LEVMAR_DER) "()\n");
+        fprintf(stderr, "No function specified for computing the Jacobian in dlevmar_der"
+            "().\nIf no such function is available, use dlevmar_dif() rather than dlevmar_der()\n");
         return LM_ERROR;
     }
 
@@ -160,7 +148,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
         worksz = LM_DER_WORKSZ(m, n); //2*n+4*m + n*m + m*m;
         work = (LM_REAL*)malloc(worksz * sizeof(LM_REAL)); /* allocate a big chunk in one step */
         if (!work) {
-            fprintf(stderr, LCAT(LEVMAR_DER, "(): memory allocation request failed\n"));
+            fprintf(stderr, "dlevmar_der() : memory allocation request failed\n");
             return LM_ERROR;
         }
         freework = 1;
@@ -180,7 +168,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     (*func)(p, hx, m, n, adata); nfev = 1;
     /* ### e=x-hx, p_eL2=||e|| */
 #if 1
-    p_eL2 = LEVMAR_L2NRMXMY(e, x, hx, n);
+    p_eL2 = dlevmar_L2nrmxmy(e, x, hx, n);
 #else
     for (i = 0, p_eL2 = 0.0; i < n; ++i) {
         e[i] = tmp = x[i] - hx[i];
@@ -256,7 +244,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
         else { // this is a large problem
             /* Cache efficient computation of J^T J based on blocking
              */
-            LEVMAR_TRANS_MAT_MAT_MULT(jac, jacTjac, n, m);
+            dlevmar_trans_mat_mat_mult(jac, jacTjac, n, m);
 
             /* cache efficient computation of J^T e */
             for (i = 0; i < m; ++i)
@@ -301,7 +289,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
             /* solve augmented equations */
             /* use the LU included with levmar */
-            issolved = AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver = AX_EQ_B_LU;
+            issolved = dAx_eq_b_LU_noLapack(jacTjac, jacTe, Dp, m); ++nlss; linsolver = dAx_eq_b_LU_noLapack;
 
             if (issolved) {
                 /* compute p's new estimate and ||Dp||^2 */
@@ -326,7 +314,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                 (*func)(pDp, hx, m, n, adata); ++nfev; /* evaluate function at p + Dp */
                 /* compute ||e(pDp)||_2 */
                 /* ### hx=x-hx, pDp_eL2=||hx|| */
-                pDp_eL2 = LEVMAR_L2NRMXMY(hx, x, hx, n);
+                pDp_eL2 = dlevmar_L2nrmxmy(hx, x, hx, n);
                 if (!LM_FINITE(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
                                           * This check makes sure that the inner loop does not run indefinitely.
                                           * Thanks to Steve Danauskas for reporting such cases
@@ -395,7 +383,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
     /* covariance matrix */
     if (covar) {
-        LEVMAR_COVAR(jacTjac, covar, p_eL2, m, n);
+        dlevmar_covar(jacTjac, covar, p_eL2, m, n);
     }
 
     if (freework) free(work);
@@ -408,10 +396,10 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 }
 
 
-/* Secant version of the LEVMAR_DER() function above: the Jacobian is approximated with
+/* Secant version of the dlevmar_der() function above: the Jacobian is approximated with
  * the aid of finite differences (forward or central, see the comment for the opts argument)
  */
-int LEVMAR_DIF(
+int dlevmar_dif(
     void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata), /* functional relation describing measurements. A p \in R^m yields a \hat{x} \in  R^n */
     LM_REAL* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
     LM_REAL* x,         /* I: measurement vector. NULL implies a zero vector */
@@ -476,7 +464,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     updjac = newjac = 0; /* -Wall */
 
     if (n < m) {
-        fprintf(stderr, LCAT(LEVMAR_DIF, "(): cannot solve a problem with fewer measurements [%d] than unknowns [%d]\n"), n, m);
+        fprintf(stderr, "dlevmar_dif(): cannot solve a problem with fewer measurements [%d] than unknowns [%d]\n", n, m);
         return LM_ERROR;
     }
 
@@ -505,7 +493,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
         worksz = LM_DIF_WORKSZ(m, n); //4*n+4*m + n*m + m*m;
         work = (LM_REAL*)malloc(worksz * sizeof(LM_REAL)); /* allocate a big chunk in one step */
         if (!work) {
-            fprintf(stderr, LCAT(LEVMAR_DIF, "(): memory allocation request failed\n"));
+            fprintf(stderr, "dlevmar_dif(): memory allocation request failed\n");
             return LM_ERROR;
         }
         freework = 1;
@@ -526,7 +514,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     /* compute e=x - f(p) and its L2 norm */
     (*func)(p, hx, m, n, adata); nfev = 1;
     /* ### e=x-hx, p_eL2=||e|| */
-    p_eL2 = LEVMAR_L2NRMXMY(e, x, hx, n);
+    p_eL2 = dlevmar_L2nrmxmy(e, x, hx, n);
     init_p_eL2 = p_eL2;
     if (!LM_FINITE(p_eL2)) stop = 7;
 
@@ -546,11 +534,11 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
         if ((updp && nu > 16) || updjac == K) { /* compute difference approximation to J */
             if (using_ffdif) { /* use forward differences */
-                LEVMAR_FDIF_FORW_JAC_APPROX(func, p, hx, wrk, delta, jac, m, n, adata);
+                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, m, n, adata);
                 ++njap; nfev += m;
             }
             else { /* use central differences */
-                LEVMAR_FDIF_CENT_JAC_APPROX(func, p, wrk, wrk2, delta, jac, m, n, adata);
+                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, m, n, adata);
                 ++njap; nfev += 2 * m;
             }
             nu = 2; updjac = 0; updp = 0; newjac = 1;
@@ -608,7 +596,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
             else { // this is a large problem
                 /* Cache efficient computation of J^T J based on blocking
                  */
-                LEVMAR_TRANS_MAT_MAT_MULT(jac, jacTjac, n, m);
+                dlevmar_trans_mat_mat_mult(jac, jacTjac, n, m);
 
                 /* cache efficient computation of J^T e */
                 for (i = 0; i < m; ++i)
@@ -654,7 +642,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
         /* solve augmented equations */
         /* use the LU included with levmar */
-        issolved = AX_EQ_B_LU(jacTjac, jacTe, Dp, m); ++nlss; linsolver = AX_EQ_B_LU;
+        issolved = dAx_eq_b_LU_noLapack(jacTjac, jacTe, Dp, m); ++nlss; linsolver = dAx_eq_b_LU_noLapack;
 
         if (issolved) {
             /* compute p's new estimate and ||Dp||^2 */
@@ -679,7 +667,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
             (*func)(pDp, wrk, m, n, adata); ++nfev; /* evaluate function at p + Dp */
             /* compute ||e(pDp)||_2 */
             /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
-            pDp_eL2 = LEVMAR_L2NRMXMY(wrk2, x, wrk, n);
+            pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, n);
             if (!LM_FINITE(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
                                       * This check makes sure that the loop terminates early in the case
                                       * of invalid input. Thanks to Steve Danauskas for suggesting it
@@ -762,7 +750,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
     /* covariance matrix */
     if (covar) {
-        LEVMAR_COVAR(jacTjac, covar, p_eL2, m, n);
+        dlevmar_covar(jacTjac, covar, p_eL2, m, n);
     }
 
 
@@ -776,14 +764,6 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 }
 
 /* undefine everything. THIS MUST REMAIN AT THE END OF THE FILE */
-#undef LEVMAR_DER
-#undef LEVMAR_DIF
-#undef LEVMAR_FDIF_FORW_JAC_APPROX
-#undef LEVMAR_FDIF_CENT_JAC_APPROX
-#undef LEVMAR_COVAR
-#undef LEVMAR_TRANS_MAT_MAT_MULT
-#undef LEVMAR_L2NRMXMY
-#undef AX_EQ_B_LU
 #undef AX_EQ_B_CHOL
 #undef AX_EQ_B_PLASMA_CHOL
 #undef AX_EQ_B_QR
@@ -795,7 +775,6 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
 
 #undef LM_REAL
-#undef LM_PREFIX
 #undef LM_REAL_MAX
 #undef LM_REAL_EPSILON
 #undef LM_REAL_MIN
