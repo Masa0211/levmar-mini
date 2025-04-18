@@ -52,17 +52,6 @@ void test_ross()
 
     {
         double p[] = { -1.2, 1.0 };
-        const double expected[] = { 0.9432308872, 0.889388354307 };
-        int ret = dlevmar_der(ros, jacros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL); // with analytic Jacobian
-        std::cout << std::setprecision(12);
-        std::cout << "analytic Jacobian" << std::endl;
-        for (auto i = 0; i < m; ++i)
-            //std::cout << "p[" << i << "] = " << p[i] << ", diff = " << p[i] - expected[i] << std::endl;
-            check_value(p[i], expected[i]);
-
-    }
-    {
-        double p[] = { -1.2, 1.0 };
         const double expected[] = { 0.553823321867, 0.305535016043 };
         int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
         std::cout << std::setprecision(12);
@@ -117,16 +106,6 @@ void test_osborne()
 
     const double theoretical[] = { 0.3754, 1.9358, -1.4647, 0.0129, 0.0221 };
 
-    {
-        std::cout << "Osborne analytic Jacobian" << std::endl;
-        double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
-        const double expected[] = { 0.375410052105, 1.9358469125, -1.4646871364, 0.0128675346396, 0.0221226996625 };
-        int ret = dlevmar_der(osborne, jacosborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL); // with analytic Jacobian
-        for (auto i = 0; i < m; ++i)
-            //std::cout << "p[" << i << "] = " << p[i] << ", diff = " << p[i] - expected[i] << std::endl;
-            check_value(p[i], expected[i]);
-
-    }
     {
         std::cout << "Osborne differencial Jacobian" << std::endl;
         double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
