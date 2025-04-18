@@ -27,9 +27,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
+#include <cmath>
 
 #include "levmar.h"
-#include "compiler.h"
+//#include "compiler.h"
 #include "misc.h"
 
 
@@ -42,7 +43,6 @@
 #define LM_REAL_MAX DBL_MAX
 #define LM_REAL_MIN -DBL_MAX
 #define LM_REAL_EPSILON DBL_EPSILON
-#define LM_CNST(x) (x)
 
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
@@ -137,11 +137,11 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
         eps3 = opts[3];
     }
     else { // use default values
-        tau = LM_CNST(LM_INIT_MU);
-        eps1 = LM_CNST(LM_STOP_THRESH);
-        eps2 = LM_CNST(LM_STOP_THRESH);
-        eps2_sq = LM_CNST(LM_STOP_THRESH) * LM_CNST(LM_STOP_THRESH);
-        eps3 = LM_CNST(LM_STOP_THRESH);
+        tau = LM_INIT_MU;
+        eps1 = LM_STOP_THRESH;
+        eps2 = LM_STOP_THRESH;
+        eps2_sq = LM_STOP_THRESH * LM_STOP_THRESH;
+        eps3 = LM_STOP_THRESH;
     }
 
     if (!work) {
@@ -176,7 +176,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     }
 #endif
     init_p_eL2 = p_eL2;
-    if (!LM_FINITE(p_eL2)) stop = 7;
+    if (!std::isfinite(p_eL2)) stop = 7;
 
     for (k = 0; k < itmax && !stop; ++k) {
         /* Note that p and e have been updated at a previous iteration */
@@ -260,7 +260,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
         /* Compute ||J^T e||_inf and ||p||^2 */
         for (i = 0, p_L2 = jacTe_inf = 0.0; i < m; ++i) {
-            if (jacTe_inf < (tmp = FABS(jacTe[i]))) jacTe_inf = tmp;
+            if (jacTe_inf < (tmp = std::abs(jacTe[i]))) jacTe_inf = tmp;
 
             diag_jacTjac[i] = jacTjac[i * m + i]; /* save diagonal entries so that augmentation can be later canceled */
             p_L2 += p[i] * p[i];
@@ -305,8 +305,8 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                     break;
                 }
 
-                if (Dp_L2 >= (p_L2 + eps2) / (LM_CNST(EPSILON) * LM_CNST(EPSILON))) { /* almost singular */
-                    //if(Dp_L2>=(p_L2+eps2)/LM_CNST(EPSILON)){ /* almost singular */
+                if (Dp_L2 >= (p_L2 + eps2) / (EPSILON * EPSILON)) { /* almost singular */
+                    //if(Dp_L2>=(p_L2+eps2)/EPSILON){ /* almost singular */
                     stop = 4;
                     break;
                 }
@@ -315,7 +315,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                 /* compute ||e(pDp)||_2 */
                 /* ### hx=x-hx, pDp_eL2=||hx|| */
                 pDp_eL2 = dlevmar_L2nrmxmy(hx, x, hx, n);
-                if (!LM_FINITE(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
+                if (!std::isfinite(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
                                           * This check makes sure that the inner loop does not run indefinitely.
                                           * Thanks to Steve Danauskas for reporting such cases
                                           */
@@ -329,9 +329,9 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                 dF = p_eL2 - pDp_eL2;
 
                 if (dL > 0.0 && dF > 0.0) { /* reduction in error, increment is accepted */
-                    tmp = (LM_CNST(2.0) * dF / dL - LM_CNST(1.0));
-                    tmp = LM_CNST(1.0) - tmp * tmp * tmp;
-                    mu = mu * ((tmp >= LM_CNST(ONE_THIRD)) ? tmp : LM_CNST(ONE_THIRD));
+                    tmp = (2.0 * dF / dL - 1.0);
+                    tmp = 1.0 - tmp * tmp * tmp;
+                    mu = mu * ((tmp >= ONE_THIRD) ? tmp : ONE_THIRD);
                     nu = 2;
 
                     for (i = 0; i < m; ++i) /* update p's estimate */
@@ -481,12 +481,12 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
         }
     }
     else { // use default values
-        tau = LM_CNST(LM_INIT_MU);
-        eps1 = LM_CNST(LM_STOP_THRESH);
-        eps2 = LM_CNST(LM_STOP_THRESH);
-        eps2_sq = LM_CNST(LM_STOP_THRESH) * LM_CNST(LM_STOP_THRESH);
-        eps3 = LM_CNST(LM_STOP_THRESH);
-        delta = LM_CNST(LM_DIFF_DELTA);
+        tau = LM_INIT_MU;
+        eps1 = LM_STOP_THRESH;
+        eps2 = LM_STOP_THRESH;
+        eps2_sq = LM_STOP_THRESH * LM_STOP_THRESH;
+        eps3 = LM_STOP_THRESH;
+        delta = LM_DIFF_DELTA;
     }
 
     if (!work) {
@@ -516,7 +516,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     /* ### e=x-hx, p_eL2=||e|| */
     p_eL2 = dlevmar_L2nrmxmy(e, x, hx, n);
     init_p_eL2 = p_eL2;
-    if (!LM_FINITE(p_eL2)) stop = 7;
+    if (!std::isfinite(p_eL2)) stop = 7;
 
     nu = 20; /* force computation of J */
 
@@ -612,7 +612,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 
             /* Compute ||J^T e||_inf and ||p||^2 */
             for (i = 0, p_L2 = jacTe_inf = 0.0; i < m; ++i) {
-                if (jacTe_inf < (tmp = FABS(jacTe[i]))) jacTe_inf = tmp;
+                if (jacTe_inf < (tmp = std::abs(jacTe[i]))) jacTe_inf = tmp;
 
                 diag_jacTjac[i] = jacTjac[i * m + i]; /* save diagonal entries so that augmentation can be later canceled */
                 p_L2 += p[i] * p[i];
@@ -658,8 +658,8 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                 break;
             }
 
-            if (Dp_L2 >= (p_L2 + eps2) / (LM_CNST(EPSILON) * LM_CNST(EPSILON))) { /* almost singular */
-                //if(Dp_L2>=(p_L2+eps2)/LM_CNST(EPSILON)){ /* almost singular */
+            if (Dp_L2 >= (p_L2 + eps2) / (EPSILON * EPSILON)) { /* almost singular */
+                //if(Dp_L2>=(p_L2+eps2)/EPSILON/* almost singular */
                 stop = 4;
                 break;
             }
@@ -668,7 +668,7 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
             /* compute ||e(pDp)||_2 */
             /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
             pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, n);
-            if (!LM_FINITE(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
+            if (!std::isfinite(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
                                       * This check makes sure that the loop terminates early in the case
                                       * of invalid input. Thanks to Steve Danauskas for suggesting it
                                       */
@@ -694,9 +694,9 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
                 dL += Dp[i] * (mu * Dp[i] + jacTe[i]);
 
             if (dL > 0.0 && dF > 0.0) { /* reduction in error, increment is accepted */
-                tmp = (LM_CNST(2.0) * dF / dL - LM_CNST(1.0));
-                tmp = LM_CNST(1.0) - tmp * tmp * tmp;
-                mu = mu * ((tmp >= LM_CNST(ONE_THIRD)) ? tmp : LM_CNST(ONE_THIRD));
+                tmp = (2.0 * dF / dL - 1.0);
+                tmp = 1.0 - tmp * tmp * tmp;
+                mu = mu * ((tmp >= ONE_THIRD) ? tmp : ONE_THIRD);
                 nu = 2;
 
                 for (i = 0; i < m; ++i) /* update p's estimate */
@@ -763,14 +763,6 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
     return (stop != 4 && stop != 7) ? k : LM_ERROR;
 }
 
-/* undefine everything. THIS MUST REMAIN AT THE END OF THE FILE */
-#undef AX_EQ_B_CHOL
-#undef AX_EQ_B_PLASMA_CHOL
-#undef AX_EQ_B_QR
-#undef AX_EQ_B_QRLS
-#undef AX_EQ_B_SVD
-#undef AX_EQ_B_BK
-
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
 
@@ -778,4 +770,3 @@ void* adata)       /* pointer to possibly additional data, passed uninterpreted 
 #undef LM_REAL_MAX
 #undef LM_REAL_EPSILON
 #undef LM_REAL_MIN
-#undef LM_CNST

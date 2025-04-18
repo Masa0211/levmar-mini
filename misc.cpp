@@ -28,6 +28,8 @@
 #include <math.h>
 #include <float.h>
 
+#include <algorithm>
+
 #include "levmar.h"
 #include "misc.h"
 
@@ -35,7 +37,6 @@
 #define LM_REAL double
 
 #define LM_REAL_EPSILON DBL_EPSILON
-#define LM_CNST(x) (x)
 
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
@@ -55,23 +56,20 @@ void dlevmar_trans_mat_mat_mult(LM_REAL* a, LM_REAL* b, int n, int m)
     LM_REAL sum, * bim, * akm;
     const int bsize = __BLOCKSZ__;
 
-#define __MIN__(x, y) (((x)<=(y))? (x) : (y))
-#define __MAX__(x, y) (((x)>=(y))? (x) : (y))
-
     /* compute upper triangular part using blocking */
     for (jj = 0; jj < m; jj += bsize) {
         for (i = 0; i < m; ++i) {
             bim = b + i * m;
-            for (j = __MAX__(jj, i); j < __MIN__(jj + bsize, m); ++j)
+            for (j = std::max(jj, i); j < std::max(jj + bsize, m); ++j)
                 bim[j] = 0.0; //b[i*m+j]=0.0;
         }
 
         for (kk = 0; kk < n; kk += bsize) {
             for (i = 0; i < m; ++i) {
                 bim = b + i * m;
-                for (j = __MAX__(jj, i); j < __MIN__(jj + bsize, m); ++j) {
+                for (j = std::max(jj, i); j < std::max(jj + bsize, m); ++j) {
                     sum = 0.0;
-                    for (k = kk; k < __MIN__(kk + bsize, n); ++k) {
+                    for (k = kk; k < std::max(kk + bsize, n); ++k) {
                         akm = a + k * m;
                         sum += akm[i] * akm[j]; //a[k*m+i]*a[k*m+j];
                     }
@@ -85,9 +83,6 @@ void dlevmar_trans_mat_mat_mult(LM_REAL* a, LM_REAL* b, int n, int m)
     for (i = 0; i < m; ++i)
         for (j = 0; j < i; ++j)
             b[i * m + j] = b[j * m + i];
-
-#undef __MIN__
-#undef __MAX__
 
 }
 
@@ -110,8 +105,8 @@ void dlevmar_fdif_forw_jac_approx(
 
     for (j = 0; j < m; ++j) {
         /* determine d=max(1E-04*|p[j]|, delta), see HZ */
-        d = LM_CNST(1E-04) * p[j]; // force evaluation
-        d = FABS(d);
+        d = 1E-04 * p[j]; // force evaluation
+        d = std::abs(d);
         if (d < delta)
             d = delta;
 
@@ -122,7 +117,7 @@ void dlevmar_fdif_forw_jac_approx(
 
         p[j] = tmp; /* restore */
 
-        d = LM_CNST(1.0) / d; /* invert so that divisions can be carried out faster as multiplications */
+        d = 1.0 / d; /* invert so that divisions can be carried out faster as multiplications */
         for (i = 0; i < n; ++i) {
             jac[i * m + j] = (hxx[i] - hx[i]) * d;
         }
@@ -148,8 +143,8 @@ void dlevmar_fdif_cent_jac_approx(
 
     for (j = 0; j < m; ++j) {
         /* determine d=max(1E-04*|p[j]|, delta), see HZ */
-        d = LM_CNST(1E-04) * p[j]; // force evaluation
-        d = FABS(d);
+        d = 1E-04 * p[j]; // force evaluation
+        d = std::abs(d);
         if (d < delta)
             d = delta;
 
@@ -161,7 +156,7 @@ void dlevmar_fdif_cent_jac_approx(
         (*func)(p, hxp, m, n, adata);
         p[j] = tmp; /* restore */
 
-        d = LM_CNST(0.5) / d; /* invert so that divisions can be carried out faster as multiplications */
+        d = 0.5/ d; /* invert so that divisions can be carried out faster as multiplications */
         for (i = 0; i < n; ++i) {
             jac[i * m + j] = (hxp[i] - hxm[i]) * d;
         }
@@ -204,79 +199,6 @@ void dlevmar_fdif_cent_jac_approx(
  * of p should be unusually small (in particular, zero) or any
  * other value which may cause loss of significance.
  */
-
-//void LEVMAR_CHKJAC(
-//    void (*func)(LM_REAL* p, LM_REAL* hx, int m, int n, void* adata),
-//    void (*jacf)(LM_REAL* p, LM_REAL* j, int m, int n, void* adata),
-//    LM_REAL* p, int m, int n, void* adata, LM_REAL* err)
-//{
-//    LM_REAL factor = LM_CNST(100.0);
-//    LM_REAL one = LM_CNST(1.0);
-//    LM_REAL zero = LM_CNST(0.0);
-//    LM_REAL* fvec, * fjac, * pp, * fvecp, * buf;
-//
-//    int i, j;
-//    LM_REAL eps, epsf, temp, epsmch;
-//    LM_REAL epslog;
-//    int fvec_sz = n, fjac_sz = n * m, pp_sz = m, fvecp_sz = n;
-//
-//    epsmch = LM_REAL_EPSILON;
-//    eps = (LM_REAL)sqrt(epsmch);
-//
-//    buf = (LM_REAL*)malloc((fvec_sz + fjac_sz + pp_sz + fvecp_sz) * sizeof(LM_REAL));
-//    if (!buf) {
-//        fprintf(stderr, LCAT(LEVMAR_CHKJAC, "(): memory allocation request failed\n"));
-//        exit(1);
-//    }
-//    fvec = buf;
-//    fjac = fvec + fvec_sz;
-//    pp = fjac + fjac_sz;
-//    fvecp = pp + pp_sz;
-//
-//    /* compute fvec=func(p) */
-//    (*func)(p, fvec, m, n, adata);
-//
-//    /* compute the Jacobian at p */
-//    (*jacf)(p, fjac, m, n, adata);
-//
-//    /* compute pp */
-//    for (j = 0; j < m; ++j) {
-//        temp = eps * FABS(p[j]);
-//        if (temp == zero) temp = eps;
-//        pp[j] = p[j] + temp;
-//    }
-//
-//    /* compute fvecp=func(pp) */
-//    (*func)(pp, fvecp, m, n, adata);
-//
-//    epsf = factor * epsmch;
-//    epslog = (LM_REAL)log10(eps);
-//
-//    for (i = 0; i < n; ++i)
-//        err[i] = zero;
-//
-//    for (j = 0; j < m; ++j) {
-//        temp = FABS(p[j]);
-//        if (temp == zero) temp = one;
-//
-//        for (i = 0; i < n; ++i)
-//            err[i] += temp * fjac[i * m + j];
-//    }
-//
-//    for (i = 0; i < n; ++i) {
-//        temp = one;
-//        if (fvec[i] != zero && fvecp[i] != zero && FABS(fvecp[i] - fvec[i]) >= epsf * FABS(fvec[i]))
-//            temp = eps * FABS((fvecp[i] - fvec[i]) / eps - err[i]) / (FABS(fvec[i]) + FABS(fvecp[i]));
-//        err[i] = one;
-//        if (temp > epsmch && temp < eps)
-//            err[i] = ((LM_REAL)log10(temp) - epslog) / epslog;
-//        if (temp >= eps) err[i] = zero;
-//    }
-//
-//    free(buf);
-//
-//    return;
-//}
 
 
 /*
@@ -325,7 +247,7 @@ static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
     for (i = 0; i < m; ++i) {
         max = 0.0;
         for (j = 0; j < m; ++j)
-            if ((tmp = FABS(a[i * m + j])) > max)
+            if ((tmp = std::abs(a[i * m + j])) > max)
                 max = tmp;
         if (max == 0.0) {
             fprintf(stderr, "Singular matrix A in dlevmar_LUinverse_noLapack()!\n");
@@ -333,7 +255,7 @@ static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
 
             return 0;
         }
-        work[i] = LM_CNST(1.0) / max;
+        work[i] = 1.0 / max;
     }
 
     for (j = 0; j < m; ++j) {
@@ -349,7 +271,7 @@ static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
             for (k = 0; k < j; ++k)
                 sum -= a[i * m + k] * a[k * m + j];
             a[i * m + j] = sum;
-            if ((tmp = work[i] * FABS(sum)) >= max) {
+            if ((tmp = work[i] * std::abs(sum)) >= max) {
                 max = tmp;
                 maxi = i;
             }
@@ -366,7 +288,7 @@ static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
         if (a[j * m + j] == 0.0)
             a[j * m + j] = LM_REAL_EPSILON;
         if (j != m - 1) {
-            tmp = LM_CNST(1.0) / (a[j * m + j]);
+            tmp = 1.0 / (a[j * m + j]);
             for (i = j + 1; i < m; ++i)
                 a[i * m + j] *= tmp;
         }
@@ -377,7 +299,7 @@ static int dlevmar_LUinverse_noLapack(LM_REAL* A, LM_REAL* B, int m)
      */
     for (l = 0; l < m; ++l) {
         for (i = 0; i < m; ++i) x[i] = 0.0;
-        x[l] = LM_CNST(1.0);
+        x[l] = 1.0;
 
         for (i = k = 0; i < m; ++i) {
             j = idx[i];
@@ -540,15 +462,7 @@ LM_REAL dlevmar_L2nrmxmy(LM_REAL* e, LM_REAL* x, LM_REAL* y, int n)
     return sum0 + sum1 + sum2 + sum3;
 }
 
-/* undefine everything. THIS MUST REMAIN AT THE END OF THE FILE */
-#undef POTF2
-#undef GESVD
-#undef GESDD
-#undef GEMM
-#undef LEVMAR_PSEUDOINVERSE
-
 // ------------------------------------ misc_core.cpp ------------------------------------ //
 
 #undef LM_REAL
 #undef LM_REAL_EPSILON
-#undef LM_CNST

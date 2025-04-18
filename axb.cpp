@@ -28,13 +28,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <cmath>
 
 #include "levmar.h"
 #include "misc.h"
 
  /* double precision definitions */
 #define LM_REAL double
-#define LM_CNST(x) (x)
 #include <float.h>
 #define LM_REAL_EPSILON DBL_EPSILON
 
@@ -128,7 +128,7 @@ int dAx_eq_b_LU_noLapack(LM_REAL* A, LM_REAL* B, LM_REAL* x, int m)
     for (i = 0; i < m; ++i) {
         max = 0.0;
         for (j = 0; j < m; ++j)
-            if ((tmp = FABS(a[i * m + j])) > max)
+            if ((tmp = std::abs(a[i * m + j])) > max)
                 max = tmp;
         if (max == 0.0) {
             fprintf(stderr, "Singular matrix A in dAx_eq_b_LU_noLapack()!\n");
@@ -138,7 +138,7 @@ int dAx_eq_b_LU_noLapack(LM_REAL* A, LM_REAL* B, LM_REAL* x, int m)
 
             return 0;
         }
-        work[i] = LM_CNST(1.0) / max;
+        work[i] = 1.0 / max;
     }
 
     for (j = 0; j < m; ++j) {
@@ -154,7 +154,7 @@ int dAx_eq_b_LU_noLapack(LM_REAL* A, LM_REAL* B, LM_REAL* x, int m)
             for (k = 0; k < j; ++k)
                 sum -= a[i * m + k] * a[k * m + j];
             a[i * m + j] = sum;
-            if ((tmp = work[i] * FABS(sum)) >= max) {
+            if ((tmp = work[i] * std::abs(sum)) >= max) {
                 max = tmp;
                 maxi = i;
             }
@@ -171,7 +171,7 @@ int dAx_eq_b_LU_noLapack(LM_REAL* A, LM_REAL* B, LM_REAL* x, int m)
         if (a[j * m + j] == 0.0)
             a[j * m + j] = LM_REAL_EPSILON;
         if (j != m - 1) {
-            tmp = LM_CNST(1.0) / (a[j * m + j]);
+            tmp = 1.0 / (a[j * m + j]);
             for (i = j + 1; i < m; ++i)
                 a[i * m + j] *= tmp;
         }
@@ -212,5 +212,4 @@ int dAx_eq_b_LU_noLapack(LM_REAL* A, LM_REAL* B, LM_REAL* x, int m)
 // ------------------------------------ axb_core.cpp ------------------------------------ //
 
 #undef LM_REAL
-#undef LM_CNST
 #undef LM_REAL_EPSILON

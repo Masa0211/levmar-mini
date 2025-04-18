@@ -20,24 +20,6 @@
 #ifndef _MISC_H_
 #define _MISC_H_
 
-/* common suffix for BLAS subroutines */
-//#define LM_BLAS_SUFFIX  // define empty if a f2c_ or cblas_ prefix was defined for LM_BLAS_PREFIX above
-#define LM_BLAS_SUFFIX _ // use this in case of no BLAS prefix
-
-
-#define LCAT_(a, b)    #a b
-#define LCAT(a, b)    LCAT_(a, b) // force substitution
-#define RCAT_(a, b)    a #b
-#define RCAT(a, b)    RCAT_(a, b) // force substitution
-
-
-#ifdef LM_BLAS_PREFIX
-#define LM_MK_BLAS_NAME(s) LM_CAT_(LM_BLAS_PREFIX, LM_ADD_PREFIX(LM_CAT_(s, LM_BLAS_SUFFIX)))
-#else
-#define LM_MK_BLAS_NAME(s) LM_ADD_PREFIX(LM_CAT_(s, LM_BLAS_SUFFIX))
-#endif
-
-
 #define __BLOCKSZ__       32 /* block size for cache-friendly matrix-matrix multiply. It should be
                               * such that __BLOCKSZ__^2*sizeof(LM_REAL) is smaller than the CPU (L1)
                               * data cache size. Notice that a value of 32 when LM_REAL=double assumes
@@ -47,38 +29,24 @@
                               */
 #define __BLOCKSZ__SQ    (__BLOCKSZ__)*(__BLOCKSZ__)
 
-/* add a prefix in front of a token */
-#define LM_CAT__(a, b) a ## b
-#define LM_CAT_(a, b) LM_CAT__(a, b) // force substitution
-#define LM_ADD_PREFIX(s) LM_CAT_(d, s)
-
-#define FABS(x) (((x)>=0.0)? (x) : -(x))
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* blocking-based matrix multiply */
-extern void dlevmar_trans_mat_mat_mult(double *a, double *b, int n, int m);
+void dlevmar_trans_mat_mat_mult(double *a, double *b, int n, int m);
 
 /* forward finite differences */
-extern void dlevmar_fdif_forw_jac_approx(void (*func)(double *p, double *hx, int m, int n, void *adata),
+void dlevmar_fdif_forw_jac_approx(void (*func)(double *p, double *hx, int m, int n, void *adata),
 					double *p, double *hx, double *hxx, double delta,
 					double *jac, int m, int n, void *adata);
 
 /* central finite differences */
-extern void dlevmar_fdif_cent_jac_approx(void (*func)(double *p, double *hx, int m, int n, void *adata),
+void dlevmar_fdif_cent_jac_approx(void (*func)(double *p, double *hx, int m, int n, void *adata),
           double *p, double *hxm, double *hxp, double delta,
           double *jac, int m, int n, void *adata);
 
 /* e=x-y and ||e|| */
-extern double dlevmar_L2nrmxmy(double *e, double *x, double *y, int n);
+double dlevmar_L2nrmxmy(double *e, double *x, double *y, int n);
 
 /* covariance of LS fit */
-extern int dlevmar_covar(double *JtJ, double *C, double sumsq, int m, int n);
+int dlevmar_covar(double *JtJ, double *C, double sumsq, int m, int n);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _MISC_H_ */

@@ -47,11 +47,6 @@
 
 /****************** End of configuration options, no changes necessary beyond this point ******************/
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* work arrays size for dlevmar_der and dlevmar_dif functions.
  * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
  */
@@ -68,21 +63,17 @@ extern "C" {
 
 /* double precision LM, with & without Jacobian */
 /* unconstrained minimization */
-extern int dlevmar_der(
+int dlevmar_der(
       void (*func)(double *p, double *hx, int m, int n, void *adata),
       void (*jacf)(double *p, double *j, int m, int n, void *adata),
       double *p, double *x, int m, int n, int itmax, double *opts,
       double *info, double *work, double *covar, void *adata);
 
-extern int dlevmar_dif(
+int dlevmar_dif(
       void (*func)(double *p, double *hx, int m, int n, void *adata),
       double *p, double *x, int m, int n, int itmax, double *opts,
       double *info, double *work, double *covar, void *adata);
 
-extern int dAx_eq_b_LU_noLapack(double *A, double *B, double *x, int n);
-
-#ifdef __cplusplus
-}
-#endif
+int dAx_eq_b_LU_noLapack(double *A, double *B, double *x, int n);
 
 #endif /* _LEVMAR_H_ */

@@ -22,9 +22,7 @@ set(SOURCE_FILES
     )
 
 set(HEADER_FILES
-    compiler.h
     levmar.h
-    lm.h
     misc.h
 )
 
