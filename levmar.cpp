@@ -12,6 +12,7 @@ levmar::LevMar::LevMar(int numParams, int numPoints)
     , luBuffer_(numParams * numParams + numParams)
     , luIdx_(numParams)
     , lmWork_(workSize(numParams, numPoints))
+    , info_()
 {
     if (numParams > numPoints)
     {
@@ -40,27 +41,12 @@ levmar::LevMar::LevMar(int numParams, int numPoints)
   */
 int levmar::LevMar::dlevmar_dif(
     std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-    Real* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
-    Real* x,         /* I: measurement vector. NULL implies a zero vector */
-    int itmax,          /* I: maximum number of iterations */
+    Real* p,             /* I/O: initial parameter estimates. On output has the estimated solution */
+    Real* x,             /* I: measurement vector. NULL implies a zero vector */
+    int itmax,           /* I: maximum number of iterations */
     const Options& opts, /* I: options for the minimization */
-    Real info[LM_INFO_SZ],
-    /* O: information regarding the minimization. Set to NULL if don't care
-    * info[0]= ||e||_2 at initial p.
-    * info[1-4]=[ ||e||_2, ||J^T e||_inf,  ||Dp||_2, mu/max[J^T J]_ii ], all computed at estimated p.
-    * info[5]= # iterations,
-    * info[6]=reason for terminating: 1 - stopped by small gradient J^T e
-    *                                 2 - stopped by small Dp
-    *                                 3 - stopped by itmax
-    *                                 4 - singular matrix. Restart from current p with increased mu
-    *                                 5 - no further error reduction is possible. Restart with increased mu
-    *                                 6 - stopped by small ||e||_2
-    *                                 7 - stopped by invalid (i.e. NaN or Inf) "func" values. This is a user error
-    * info[7]= # function evaluations
-    * info[8]= # Jacobian evaluations
-    * info[9]= # linear systems solved, i.e. # attempts for reducing error
-    */
-    Real* covar)    /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
+    bool updateInfo)     /* I: if true, update the info_ structure with the results of the minimization */
+    // Real* covar)         /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
 {
     const int numParams = numParams_; // parameter vector dimension (i.e. #unknowns)
     const int numPoints = numPoints_; // measurement vector dimension
@@ -334,31 +320,27 @@ int levmar::LevMar::dlevmar_dif(
     for (i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
         jacTjac[i * numParams + i] = diag_jacTjac[i];
 
-    if (info) {
-        info[0] = init_p_eL2;
-        info[1] = p_eL2;
-        info[2] = jacTe_inf;
-        info[3] = Dp_L2;
+    if (updateInfo)
+    {
         for (i = 0, tmp = LM_REAL_MIN; i < numParams; ++i)
             if (tmp < jacTjac[i * numParams + i]) tmp = jacTjac[i * numParams + i];
-        info[4] = mu / tmp;
-        info[5] = (Real)k;
-        info[6] = (Real)stop;
-        info[7] = (Real)nfev;
-        info[8] = (Real)njap;
-        info[9] = (Real)nlss;
+
+        Info infoOut = {
+            init_p_eL2, p_eL2, jacTe_inf, Dp_L2, mu / tmp,
+            k, stop, nfev, njap, nlss
+        };
+        info_ = infoOut;
     }
 
     /* covariance matrix */
-    if (covar) {
-        dlevmar_covar(jacTjac, covar, p_eL2, numParams, numPoints);
-    }
+    // not supported at the moment
+    // if (covar) {
+    //     dlevmar_covar(jacTjac, covar, p_eL2, numParams, numPoints);
+    // }
 
     return (stop != 4 && stop != 7) ? k : LM_ERROR;
 
 } /* dlevmar_dif() */
-
-// ------------------------------ axb.cpp ----------------------------
 
 /*
  * This function returns the solution of Ax = b
@@ -378,7 +360,6 @@ int levmar::LevMar::dlevmar_dif(
 
 int levmar::LevMar::dAx_eq_b_LU(Real* A, Real* B, Real* x, int numParams)
 {
-
     if (!A)
         return 1; /* NOP */
 

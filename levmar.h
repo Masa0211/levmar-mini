@@ -24,6 +24,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <optional>
 
 namespace levmar
 {
@@ -53,6 +54,35 @@ namespace levmar
             Real delta = LM_DIFF_DELTA; // step used in difference approximation to the Jacobian
         };
 
+        /* information regarding the minimization. Set to NULL if don't care
+        * info[0]= ||e||_2 at initial p.
+        * info[1-4]=[ ||e||_2, ||J^T e||_inf,  ||Dp||_2, mu/max[J^T J]_ii ], all computed at estimated p.
+        * info[5]= # iterations,
+        * info[6]=reason for terminating: 1 - stopped by small gradient J^T e
+        *                                 2 - stopped by small Dp
+        *                                 3 - stopped by itmax
+        *                                 4 - singular matrix. Restart from current p with increased mu
+        *                                 5 - no further error reduction is possible. Restart with increased mu
+        *                                 6 - stopped by small ||e||_2
+        *                                 7 - stopped by invalid (i.e. NaN or Inf) "func" values. This is a user error
+        * info[7]= # function evaluations
+        * info[8]= # Jacobian evaluations
+        * info[9]= # linear systems solved, i.e. # attempts for reducing error
+        */
+        struct Info
+        {
+            Real eL2 = 0.0; // ||e||_2 at initial p
+            Real p_eL2 = 0.0; // ||e||_2 at estimated p
+            Real jacTe_inf = 0.0; // ||J^T e||_inf at estimated p
+            Real Dp_L2 = 0.0; // ||Dp||_2 at estimated p
+            Real mu_max_diag_jacTjac = 0.0; // mu/max[J^T J]_ii at estimated p
+            int k = 0; // # iterations
+            int stop = 0; // reason for terminating
+            int nfev = 0; // # function evaluations
+            int njap = 0; // # Jacobian evaluations
+            int nlss = 0; // # linear systems solved, i.e. # attempts for reducing error
+        };
+
         LevMar(
             int numParams, // (= m) number of optimization parameters (i.e. #unknowns)
             int numPoints  // (= n) number of data points/observations
@@ -62,8 +92,8 @@ namespace levmar
             std::function<void(Real*, Real*, int numParams, int numPoints)> func,
             double* p, double* x, int itmax,
             const Options& opts,
-            double* info, double* covar);
-
+            bool updateInfo = false);
+            // double* covar = nullptr);
 
     private:
         /* work arrays size for dlevmar_der and dlevmar_dif functions.
@@ -84,5 +114,7 @@ namespace levmar
         std::vector<double> luBuffer_; // m * m matrix and m vector
         std::vector<int> luIdx_; // m vector
         std::vector<double> lmWork_; // memory for levmar main algorithm
+
+        Info info_;
     };
 } // levmar

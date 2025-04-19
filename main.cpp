@@ -59,7 +59,7 @@ void test_ross()
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = -1.2; p[1] = 1.0;
-            int ret = levmar.dlevmar_dif(targetFunc, p, x, 1000, opts, info, NULL);  // no Jacobianlevmar
+            int ret = levmar.dlevmar_dif(targetFunc, p, x, 1000, opts, info);  // no Jacobianlevmar
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
@@ -131,7 +131,7 @@ void test_osborne()
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = 0.5; p[1] = 1.5; p[2] = -1.0; p[3] = 1.0E-2; p[4] = 2.0E-2;
-            int ret = levmar.dlevmar_dif(targetFunc, p, x33, 1000, opts, info, NULL);  // no Jacobian
+            int ret = levmar.dlevmar_dif(targetFunc, p, x33, 1000, opts, info);  // no Jacobian
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
