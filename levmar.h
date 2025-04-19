@@ -107,6 +107,11 @@ namespace levmar
             bool updateInfo = false);
             // double* covar = nullptr);
 
+        const auto& info() const noexcept
+        {
+            return info_;
+        }
+
     private:
         /* work arrays size for dlevmar_der and dlevmar_dif functions.
          * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
