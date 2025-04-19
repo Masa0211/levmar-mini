@@ -27,42 +27,46 @@
 namespace levmar
 {
     using Real = double;
+    constexpr int LM_OPTS_SZ = 5;
+    constexpr int LM_INFO_SZ = 10;
+    constexpr int LM_ERROR = -1;
+    constexpr Real LM_INIT_MU = 1.e-03;
+    constexpr Real LM_STOP_THRESH = 1.e-17;
+    constexpr Real LM_DIFF_DELTA = 1.e-06;
 
     class LevMar
     {
     public:
-        constexpr static double LMA_OPTS_SZ = 5;
-        constexpr static double LMA_INFO_SZ = 1;
-        constexpr static double LMA_ERROR = -1;
-        constexpr static double LMA_INIT_MU = 1.e-03;
-        constexpr static double LMA_STOP_THRESH = 1.e-17;
-        constexpr static double LMA_DIFF_DELTA = 1.e-06;
 
         LevMar(
-            int n, // parameter vector dimension (i.e. #unknowns)
-            int m  // measurement vector dimension
+            int m, // parameter vector dimension (i.e. #unknowns)
+            int n  // measurement vector dimension
         );
 
         int dlevmar_dif(
             void (*func)(double* p, double* hx, int m, int n, void* adata),
             double* p, double* x, int m, int n, int itmax, double* opts,
-            double* info, double* work, double* covar, void* adata);
+            double* info, double* covar, void* adata);
 
-        int dAx_eq_b_LU_noLapack(double* A, double* B, double* x, int n);
 
     private:
         /* work arrays size for dlevmar_der and dlevmar_dif functions.
          * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
          */
-        int inline workSize(int npar, int nmeas) const noexcept
+        int inline workSize(
+            int npar, // (=m) parameter vector dimension (i.e. #unknowns)
+            int nmeas // (=n) measurement vector dimension
+        ) const noexcept
         {
-            return 4 * (nmeas)+4 * (npar)+(nmeas) * (npar)+(npar) * (npar);
+            return 4 * (nmeas) + 4 * (npar) + (nmeas) * (npar) + (npar) * (npar);
         }
 
-        /* covariance of LS fit */
-        int dlevmar_covar(double* JtJ, double* C, double sumsq, int m, int n);
+        int dAx_eq_b_LU_noLapack(double* A, double* B, double* x, int n);
 
-        int n_;
         int m_;
+        int n_;
+        std::vector<double> luBuffer_; // m * m matrix and m vector
+        std::vector<int> luIdx_; // m vector
+        std::vector<double> lmWork_; // memory for levmar main algorithm
     };
 } // levmar

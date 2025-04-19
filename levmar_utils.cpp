@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <vector>
 #include "levmar_utils.h"
 
 using levmar::Real;
@@ -215,4 +216,169 @@ Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
     }
 
     return sum0 + sum1 + sum2 + sum3;
+}
+
+/*
+ * This function computes in C the covariance matrix corresponding to a least
+ * squares fit. JtJ is the approximate Hessian at the solution (i.e. J^T*J, where
+ * J is the Jacobian at the solution), sumsq is the sum of squared residuals
+ * (i.e. goodnes of fit) at the solution, m is the number of parameters (variables)
+ * and n the number of observations. JtJ can coincide with C.
+ *
+ * if JtJ is of full rank, C is computed as sumsq/(n-m)*(JtJ)^-1
+ * otherwise and if LAPACK is available, C=sumsq/(n-r)*(JtJ)^+
+ * where r is JtJ's rank and ^+ denotes the pseudoinverse
+ * The diagonal of C is made up from the estimates of the variances
+ * of the estimated regression coefficients.
+ * See the documentation of routine E04YCF from the NAG fortran lib
+ *
+ * The function returns the rank of JtJ if successful, 0 on error
+ *
+ * A and C are mxm
+ *
+ */
+int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int m, int n)
+{
+    int i;
+    int rnk;
+    Real fact;
+
+    rnk = dlevmar_LUinverse_noLapack(JtJ, C, m);
+    if (!rnk) return 0;
+
+    rnk = m; /* assume full rank */
+
+    fact = sumsq / (Real)(n - rnk);
+    for (i = 0; i < m * m; ++i)
+        C[i] *= fact;
+
+    return rnk;
+}
+
+/*
+ * This function computes the inverse of A in B. A and B can coincide
+ *
+ * The function employs LAPACK-free LU decomposition of A to solve m linear
+ * systems A*B_i=I_i, where B_i and I_i are the i-th columns of B and I.
+ *
+ * A and B are mxm
+ *
+ * The function returns 0 in case of error, 1 if successful
+ *
+ */
+int levmar::dlevmar_LUinverse_noLapack(Real* A, Real* B, int m)
+{
+    void* buf = NULL;
+    int buf_sz = 0;
+
+    int i, j, k, l;
+    int* idx, maxi = -1, idx_sz, a_sz, x_sz, work_sz;
+    Real* a, * x, * work, max, sum, tmp;
+
+    /* calculate required memory size */
+    idx_sz = m;
+    a_sz = m * m;
+    x_sz = m;
+    work_sz = m;
+    //tot_sz = (a_sz + x_sz + work_sz) * sizeof(Real) + idx_sz * sizeof(int); /* should be arranged in that order for proper doubles alignment */
+
+    std::vector<Real> work_(a_sz + x_sz + work_sz);
+    std::vector<int> idx_(idx_sz);
+
+    //buf_sz = tot_sz;
+
+    //buf = (void*)malloc(tot_sz);
+    //if (!buf) {
+    //    fprintf(stderr, "memory allocation in dlevmar_LUinverse_noLapack() failed!\n");
+    //    return 0; /* error */
+    //}
+
+    a = work_.data();
+    x = a + a_sz;
+    work = x + x_sz;
+    idx = idx_.data();
+
+    /* avoid destroying A by copying it to a */
+    for (i = 0; i < a_sz; ++i) a[i] = A[i];
+
+    /* compute the LU decomposition of a row permutation of matrix a; the permutation itself is saved in idx[] */
+    for (i = 0; i < m; ++i) {
+        max = 0.0;
+        for (j = 0; j < m; ++j)
+            if ((tmp = std::abs(a[i * m + j])) > max)
+                max = tmp;
+        if (max == 0.0) {
+            fprintf(stderr, "Singular matrix A in dlevmar_LUinverse_noLapack()!\n");
+            return 0;
+        }
+        work[i] = 1.0 / max;
+    }
+
+    for (j = 0; j < m; ++j) {
+        for (i = 0; i < j; ++i) {
+            sum = a[i * m + j];
+            for (k = 0; k < i; ++k)
+                sum -= a[i * m + k] * a[k * m + j];
+            a[i * m + j] = sum;
+        }
+        max = 0.0;
+        for (i = j; i < m; ++i) {
+            sum = a[i * m + j];
+            for (k = 0; k < j; ++k)
+                sum -= a[i * m + k] * a[k * m + j];
+            a[i * m + j] = sum;
+            if ((tmp = work[i] * std::abs(sum)) >= max) {
+                max = tmp;
+                maxi = i;
+            }
+        }
+        if (j != maxi) {
+            for (k = 0; k < m; ++k) {
+                tmp = a[maxi * m + k];
+                a[maxi * m + k] = a[j * m + k];
+                a[j * m + k] = tmp;
+            }
+            work[maxi] = work[j];
+        }
+        idx[j] = maxi;
+        if (a[j * m + j] == 0.0)
+            a[j * m + j] = LM_REAL_EPSILON;
+        if (j != m - 1) {
+            tmp = 1.0 / (a[j * m + j]);
+            for (i = j + 1; i < m; ++i)
+                a[i * m + j] *= tmp;
+        }
+    }
+
+    /* The decomposition has now replaced a. Solve the m linear systems using
+        * forward and back substitution
+        */
+    for (l = 0; l < m; ++l) {
+        for (i = 0; i < m; ++i) x[i] = 0.0;
+        x[l] = 1.0;
+
+        for (i = k = 0; i < m; ++i) {
+            j = idx[i];
+            sum = x[j];
+            x[j] = x[i];
+            if (k != 0)
+                for (j = k - 1; j < i; ++j)
+                    sum -= a[i * m + j] * x[j];
+            else
+                if (sum != 0.0)
+                    k = i + 1;
+            x[i] = sum;
+        }
+
+        for (i = m - 1; i >= 0; --i) {
+            sum = x[i];
+            for (j = i + 1; j < m; ++j)
+                sum -= a[i * m + j] * x[j];
+            x[i] = sum / a[i * m + i];
+        }
+
+        for (i = 0; i < m; ++i)
+            B[i * m + l] = x[i];
+    }
+    return 1;
 }

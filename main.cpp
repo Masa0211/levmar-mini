@@ -1,6 +1,6 @@
 #include <iostream>
 #include <iomanip>
-
+#include <chrono>
 
 #include "levmar.h"
 #include "levmar_utils.h"
@@ -35,14 +35,10 @@ void check_value(double value, double expected, double tol = 3.5e-12)
     }
 }
 
-#define LM_INFO_SZ    	 10
-#define LM_ERROR         -1
-#define LM_INIT_MU    	 1E-03
-#define LM_STOP_THRESH	 1E-17
-#define LM_DIFF_DELTA    1E-06
-
 void test_ross()
 {
+    using namespace levmar;
+
     double info[LM_INFO_SZ];
     double opts[] = { LM_INIT_MU, 1E-15, 1E-15, 1E-20, LM_DIFF_DELTA };
 
@@ -55,15 +51,21 @@ void test_ross()
         const double expected[] = { 0.553823321867, 0.305535016043 };
         //int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
         levmar::LevMar levmar(n, m);
-        int ret = levmar.dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobianlevmar
-        //int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        for (int i = 0; i < 1000; ++i)
+        {
+            p[0] = -1.2; p[1] = 1.0;
+            int ret = levmar.dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL);  // no Jacobianlevmar
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
 
         std::cout << std::setprecision(12);
         std::cout << "differencial Jacobian" << std::endl;
         for (auto i = 0; i < m; ++i)
             //std::cout << "p[" << i << "] = " << p[i] << ", diff = " << p[i] - expected[i] << std::endl;
             check_value(p[i], expected[i]);
-
     }
 
 }
@@ -95,6 +97,8 @@ void jacosborne(double* p, double* jac, int m, int n, void* data)
 
 void test_osborne()
 {
+    using namespace levmar;
+
     double x33[] = {
       8.44E-1, 9.08E-1, 9.32E-1, 9.36E-1, 9.25E-1, 9.08E-1, 8.81E-1,
       8.5E-1, 8.18E-1, 7.84E-1, 7.51E-1, 7.18E-1, 6.85E-1, 6.58E-1,
@@ -115,14 +119,20 @@ void test_osborne()
         double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
         const double expected[] = { 0.375410053359,1.93584689416,-1.4646871224,0.0128675347011,0.0221227000131 };
         levmar::LevMar levmar(n, m);
-        int ret = levmar.dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        for (int i = 0; i < 1000; ++i)
+        {
+            p[0] = 0.5; p[1] = 1.5; p[2] = -1.0; p[3] = 1.0E-2; p[4] = 2.0E-2;
+            int ret = levmar.dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL);  // no Jacobian
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
+
         //int ret = dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
         for (auto i = 0; i < m; ++i)
             //std::cout << "p[" << i << "] = " << p[i] << ", diff = " << p[i] - expected[i] << std::endl;
             check_value(p[i], expected[i]);
-
     }
-
 }
 
 int main()

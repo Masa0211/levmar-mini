@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace levmar
 {
     using Real = double;
@@ -13,6 +15,14 @@ namespace levmar
     */
     constexpr int MEMORY_BLOCK_SIZE = 32;
     constexpr int MEMORY_BLOCK_SIZE_SQ = MEMORY_BLOCK_SIZE * MEMORY_BLOCK_SIZE;
+
+    constexpr Real LM_REAL_EPSILON = DBL_EPSILON;
+    constexpr Real LM_REAL_MAX = DBL_MAX;
+    constexpr Real LM_REAL_MIN = - DBL_MAX;
+
+    constexpr Real EPSILON = 1E-12;
+    constexpr Real ONE_THIRD = 0.3333333334; /* 1.0/3.0 */
+    //constexpr Real ONE_THIRD = 1.0 / 3.0;
 
     /* blocking-based matrix multiply */
     void dlevmar_trans_mat_mat_mult(double* a, double* b, int n, int m);
@@ -29,5 +39,11 @@ namespace levmar
 
     /* e=x-y and ||e|| */
     double dlevmar_L2nrmxmy(double* e, double* x, double* y, int n);
+
+    /* covariance of LS fit */
+    int dlevmar_covar(double* JtJ, double* C, double sumsq, int m, int n);
+
+    /* This function computes the inverse of A in B. A and B can coincide */
+    int dlevmar_LUinverse_noLapack(Real* A, Real* B, int m);
 
 }
