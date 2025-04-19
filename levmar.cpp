@@ -96,7 +96,6 @@ int levmar::LevMar::dlevmar_dif(
     Real init_p_eL2;
     int nu, nu2, stop = 0, nfev, njap = 0, nlss = 0, K = (m >= 10) ? m : 10, updjac, updp = 1, newjac;
     const int nm = n * m;
-    //int (*linsolver)(Real * A, Real * B, Real * x, int m) = NULL;
 
     mu = jacTe_inf = p_L2 = 0.0; /* -Wall */
     updjac = newjac = 0; /* -Wall */
@@ -270,7 +269,7 @@ int levmar::LevMar::dlevmar_dif(
 
         /* solve augmented equations */
         /* use the LU included with levmar */
-        issolved = dAx_eq_b_LU_noLapack(jacTjac, jacTe, Dp, m); ++nlss; //linsolver = dAx_eq_b_LU_noLapack;
+        issolved = dAx_eq_b_LU(jacTjac, jacTe, Dp, m); ++nlss;
 
         if (issolved) {
             /* compute p's new estimate and ||Dp||^2 */
@@ -403,7 +402,7 @@ int levmar::LevMar::dlevmar_dif(
  * A call with NULL as the first argument forces this memory to be released.
  */
 
-int levmar::LevMar::dAx_eq_b_LU_noLapack(Real* A, Real* B, Real* x, int m)
+int levmar::LevMar::dAx_eq_b_LU(Real* A, Real* B, Real* x, int m)
 {
 
     if (!A)
@@ -428,7 +427,7 @@ int levmar::LevMar::dAx_eq_b_LU_noLapack(Real* A, Real* B, Real* x, int m)
             if ((tmp = std::abs(a[i * m + j])) > max)
                 max = tmp;
         if (max == 0.0) {
-            fprintf(stderr, "Singular matrix A in dAx_eq_b_LU_noLapack()!\n");
+            fprintf(stderr, "Singular matrix A in dAx_eq_b_LU()!\n");
             return 0;
         }
         work[i] = 1.0 / max;

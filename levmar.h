@@ -61,7 +61,7 @@ namespace levmar
             return 4 * (nmeas) + 4 * (npar) + (nmeas) * (npar) + (npar) * (npar);
         }
 
-        int dAx_eq_b_LU_noLapack(double* A, double* B, double* x, int n);
+        int dAx_eq_b_LU(double* A, double* B, double* x, int n);
 
         int m_;
         int n_;

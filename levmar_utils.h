@@ -44,6 +44,6 @@ namespace levmar
     int dlevmar_covar(double* JtJ, double* C, double sumsq, int m, int n);
 
     /* This function computes the inverse of A in B. A and B can coincide */
-    int dlevmar_LUinverse_noLapack(Real* A, Real* B, int m);
+    int dlevmar_LUinverse(Real* A, Real* B, int m);
 
 }

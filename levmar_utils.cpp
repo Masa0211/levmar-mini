@@ -243,7 +243,7 @@ int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int m, int n)
     int rnk;
     Real fact;
 
-    rnk = dlevmar_LUinverse_noLapack(JtJ, C, m);
+    rnk = dlevmar_LUinverse(JtJ, C, m);
     if (!rnk) return 0;
 
     rnk = m; /* assume full rank */
@@ -266,7 +266,7 @@ int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int m, int n)
  * The function returns 0 in case of error, 1 if successful
  *
  */
-int levmar::dlevmar_LUinverse_noLapack(Real* A, Real* B, int m)
+int levmar::dlevmar_LUinverse(Real* A, Real* B, int m)
 {
     void* buf = NULL;
     int buf_sz = 0;
@@ -280,18 +280,9 @@ int levmar::dlevmar_LUinverse_noLapack(Real* A, Real* B, int m)
     a_sz = m * m;
     x_sz = m;
     work_sz = m;
-    //tot_sz = (a_sz + x_sz + work_sz) * sizeof(Real) + idx_sz * sizeof(int); /* should be arranged in that order for proper doubles alignment */
 
     std::vector<Real> work_(a_sz + x_sz + work_sz);
     std::vector<int> idx_(idx_sz);
-
-    //buf_sz = tot_sz;
-
-    //buf = (void*)malloc(tot_sz);
-    //if (!buf) {
-    //    fprintf(stderr, "memory allocation in dlevmar_LUinverse_noLapack() failed!\n");
-    //    return 0; /* error */
-    //}
 
     a = work_.data();
     x = a + a_sz;
@@ -308,7 +299,7 @@ int levmar::dlevmar_LUinverse_noLapack(Real* A, Real* B, int m)
             if ((tmp = std::abs(a[i * m + j])) > max)
                 max = tmp;
         if (max == 0.0) {
-            fprintf(stderr, "Singular matrix A in dlevmar_LUinverse_noLapack()!\n");
+            fprintf(stderr, "Singular matrix A in dlevmar_LUinverse()!\n");
             return 0;
         }
         work[i] = 1.0 / max;
