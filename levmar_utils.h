@@ -26,27 +26,27 @@ namespace levmar
     //constexpr Real ONE_THIRD = 1.0 / 3.0;
 
     /* blocking-based matrix multiply */
-    void dlevmar_trans_mat_mat_mult(double* a, double* b, int n, int m);
+    void dlevmar_trans_mat_mat_mult(double* a, double* b, int numPoints, int numParams);
 
     /* forward finite differences */
     void dlevmar_fdif_forw_jac_approx(
-        std::function<void(Real*, Real*, int m, int n)> func,
+        std::function<void(Real*, Real*, int numParams, int numPoints)> func,
         double* p, double* hx, double* hxx, double delta,
-        double* jac, int m, int n);
+        double* jac, int numParams, int numPoints);
 
     /* central finite differences */
     void dlevmar_fdif_cent_jac_approx(
-        std::function<void(Real*, Real*, int m, int n)> func,
+        std::function<void(Real*, Real*, int numParams, int numPoints)> func,
         double* p, double* hxm, double* hxp, double delta,
-        double* jac, int m, int n);
+        double* jac, int numParams, int numPoints);
 
     /* e=x-y and ||e|| */
-    double dlevmar_L2nrmxmy(double* e, double* x, double* y, int n);
+    double dlevmar_L2nrmxmy(double* e, double* x, double* y, int numPoints);
 
     /* covariance of LS fit */
-    int dlevmar_covar(double* JtJ, double* C, double sumsq, int m, int n);
+    int dlevmar_covar(double* JtJ, double* C, double sumsq, int numParams, int numPoints);
 
     /* This function computes the inverse of A in B. A and B can coincide */
-    int dlevmar_LUinverse(Real* A, Real* B, int m);
+    int dlevmar_LUinverse(Real* A, Real* B, int numParams);
 
 }

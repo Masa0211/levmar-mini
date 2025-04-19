@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <vector>
+#include <iostream>
 #include "levmar_utils.h"
 
 using levmar::Real;
@@ -12,57 +13,94 @@ using levmar::Real;
  * More details on blocking can be found at
  * http://www-2.cs.cmu.edu/afs/cs/academic/class/15213-f02/www/R07/section_a/Recitation07-SectionA.pdf
  */
-void levmar::dlevmar_trans_mat_mat_mult(Real* a, Real* b, int n, int m)
+void levmar::dlevmar_trans_mat_mat_mult(Real* a, Real* b, int numPoints, int numParams)
 {
     Real sum, * bim, * akm;
     constexpr int bsize = MEMORY_BLOCK_SIZE;
 
     /* compute upper triangular part using blocking */
-    for (auto jj = 0; jj < m; jj += bsize) {
-        for (auto i = 0; i < m; ++i) {
-            bim = b + i * m;
-            for (auto j = std::max(jj, i); j < std::max(jj + bsize, m); ++j)
-                bim[j] = 0.0; //b[i*m+j]=0.0;
+    for (auto jj = 0; jj < numParams; jj += bsize) {
+        for (auto i = 0; i < numParams; ++i) {
+            bim = b + i * numParams;
+            for (auto j = std::max(jj, i); j < std::max(jj + bsize, numParams); ++j)
+                bim[j] = 0.0; //b[i*numParams+j]=0.0;
         }
 
-        for (auto kk = 0; kk < n; kk += bsize) {
-            for (auto i = 0; i < m; ++i) {
-                bim = b + i * m;
-                for (auto j = std::max(jj, i); j < std::max(jj + bsize, m); ++j) {
+        for (auto kk = 0; kk < numPoints; kk += bsize) {
+            for (auto i = 0; i < numParams; ++i) {
+                bim = b + i * numParams;
+                for (auto j = std::max(jj, i); j < std::max(jj + bsize, numParams); ++j) {
                     sum = 0.0;
-                    for (auto k = kk; k < std::max(kk + bsize, n); ++k) {
-                        akm = a + k * m;
-                        sum += akm[i] * akm[j]; //a[k*m+i]*a[k*m+j];
+                    for (auto k = kk; k < std::max(kk + bsize, numPoints); ++k) {
+                        akm = a + k * numParams;
+                        sum += akm[i] * akm[j]; //a[k*numParams+i]*a[k*numParams+j];
                     }
-                    bim[j] += sum; //b[i*m+j]+=sum;
+                    bim[j] += sum; //b[i*numParams+j]+=sum;
                 }
             }
         }
     }
 
     /* copy upper triangular part to the lower one */
-    for (auto i = 0; i < m; ++i)
+    for (auto i = 0; i < numParams; ++i)
         for (auto j = 0; j < i; ++j)
-            b[i * m + j] = b[j * m + i];
+            b[i * numParams + j] = b[j * numParams + i];
 
 }
 
+/*
+ * Check the Jacobian of a n-valued nonlinear function in m variables
+ * evaluated at a point p, for consistency with the function itself.
+ *
+ * Based on fortran77 subroutine CHKDER by
+ * Burton S. Garbow, Kenneth E. Hillstrom, Jorge J. More
+ * Argonne National Laboratory. MINPACK project. March 1980.
+ *
+ *
+ * func points to a function from R^m --> R^n: Given a p in R^m it yields hx in R^n
+ * jacf points to a function implementing the Jacobian of func, whose correctness
+ *     is to be tested. Given a p in R^m, jacf computes into the nxm matrix j the
+ *     Jacobian of func at p. Note that row i of j corresponds to the gradient of
+ *     the i-th component of func, evaluated at p.
+ * p is an input array of length m containing the point of evaluation.
+ * m is the number of variables
+ * n is the number of functions
+ * adata points to possible additional data and is passed uninterpreted
+ *     to func, jacf.
+ * err is an array of length n. On output, err contains measures
+ *     of correctness of the respective gradients. if there is
+ *     no severe loss of significance, then if err[i] is 1.0 the
+ *     i-th gradient is correct, while if err[i] is 0.0 the i-th
+ *     gradient is incorrect. For values of err between 0.0 and 1.0,
+ *     the categorization is less certain. In general, a value of
+ *     err[i] greater than 0.5 indicates that the i-th gradient is
+ *     probably correct, while a value of err[i] less than 0.5
+ *     indicates that the i-th gradient is probably incorrect.
+ *
+ *
+ * The function does not perform reliably if cancellation or
+ * rounding errors cause a severe loss of significance in the
+ * evaluation of a function. therefore, none of the components
+ * of p should be unusually small (in particular, zero) or any
+ * other value which may cause loss of significance.
+ */
+
 /* forward finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_forw_jac_approx(
-    std::function<void(Real*, Real*, int m, int n)> func,
+    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
     /* function to differentiate */
     Real* p,              /* I: current parameter estimate, mx1 */
     Real* hx,             /* I: func evaluated at p, i.e. hx=func(p), nx1 */
     Real* hxx,            /* W/O: work array for evaluating func(p+delta), nx1 */
     Real delta,           /* increment for computing the Jacobian */
     Real* jac,            /* O: array for storing approximated Jacobian, nxm */
-    int m,
-    int n)
+    int numParams,
+    int numPoints)
 {
     Real tmp;
     Real d;
 
-    for (auto j = 0; j < m; ++j) {
+    for (auto j = 0; j < numParams; ++j) {
         /* determine d=max(1E-04*|p[j]|, delta), see HZ */
         d = 1E-04 * p[j]; // force evaluation
         d = std::abs(d);
@@ -72,33 +110,33 @@ void levmar::dlevmar_fdif_forw_jac_approx(
         tmp = p[j];
         p[j] += d;
 
-        func(p, hxx, m, n);
+        func(p, hxx, numParams, numPoints);
 
         p[j] = tmp; /* restore */
 
         d = 1.0 / d; /* invert so that divisions can be carried out faster as multiplications */
-        for (auto i = 0; i < n; ++i) {
-            jac[i * m + j] = (hxx[i] - hx[i]) * d;
+        for (auto i = 0; i < numPoints; ++i) {
+            jac[i * numParams + j] = (hxx[i] - hx[i]) * d;
         }
     }
 }
 
 /* central finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_cent_jac_approx(
-    std::function<void(Real*, Real*, int m, int n)> func,
+    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
     /* function to differentiate */
     Real* p,              /* I: current parameter estimate, mx1 */
     Real* hxm,            /* W/O: work array for evaluating func(p-delta), nx1 */
     Real* hxp,            /* W/O: work array for evaluating func(p+delta), nx1 */
     Real delta,           /* increment for computing the Jacobian */
     Real* jac,            /* O: array for storing approximated Jacobian, nxm */
-    int m,
-    int n)
+    int numParams,
+    int numPoints)
 {
     Real tmp;
     Real d;
 
-    for (auto j = 0; j < m; ++j) {
+    for (auto j = 0; j < numParams; ++j) {
         /* determine d=max(1E-04*|p[j]|, delta), see HZ */
         d = 1E-04 * p[j]; // force evaluation
         d = std::abs(d);
@@ -107,15 +145,15 @@ void levmar::dlevmar_fdif_cent_jac_approx(
 
         tmp = p[j];
         p[j] -= d;
-        func(p, hxm, m, n);
+        func(p, hxm, numParams, numPoints);
 
         p[j] = tmp + d;
-        func(p, hxp, m, n);
+        func(p, hxp, numParams, numPoints);
         p[j] = tmp; /* restore */
 
         d = 0.5 / d; /* invert so that divisions can be carried out faster as multiplications */
-        for (auto i = 0; i < n; ++i) {
-            jac[i * m + j] = (hxp[i] - hxm[i]) * d;
+        for (auto i = 0; i < numPoints; ++i) {
+            jac[i * numParams + j] = (hxp[i] - hxm[i]) * d;
         }
     }
 }
@@ -127,7 +165,7 @@ void levmar::dlevmar_fdif_cent_jac_approx(
  * stalls and increase instruction-level parallelism; see http://www.abarnett.demon.co.uk/tutorial.html
  */
 
-Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
+Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int numPoints)
 {
     constexpr int blocksize = 8;
     constexpr int bpwr = 3; /* 8=2^3 */
@@ -139,7 +177,7 @@ Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
     /* n may not be divisible by blocksize,
      * go as near as we can first, then tidy up.
      */
-    blockn = (n >> bpwr) << bpwr; /* (n / blocksize) * blocksize; */
+    blockn = (numPoints >> bpwr) << bpwr; /* (n / blocksize) * blocksize; */
 
     /* unroll the loop in blocks of `blocksize'; looping downwards gains some more speed */
     if (x) {
@@ -161,12 +199,12 @@ Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
          */
 
         i = blockn;
-        if (i < n) {
+        if (i < numPoints) {
             /* Jump into the case at the place that will allow
              * us to finish off the appropriate number of items.
              */
 
-            switch (n - i) {
+            switch (numPoints - i) {
             case 7: e[i] = x[i] - y[i]; sum0 += e[i] * e[i]; ++i;
             case 6: e[i] = x[i] - y[i]; sum1 += e[i] * e[i]; ++i;
             case 5: e[i] = x[i] - y[i]; sum2 += e[i] * e[i]; ++i;
@@ -196,12 +234,12 @@ Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
          */
 
         i = blockn;
-        if (i < n) {
+        if (i < numPoints) {
             /* Jump into the case at the place that will allow
              * us to finish off the appropriate number of items.
              */
 
-            switch (n - i) {
+            switch (numPoints - i) {
             case 7: e[i] = -y[i]; sum0 += e[i] * e[i]; ++i;
             case 6: e[i] = -y[i]; sum1 += e[i] * e[i]; ++i;
             case 5: e[i] = -y[i]; sum2 += e[i] * e[i]; ++i;
@@ -235,19 +273,19 @@ Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int n)
  * A and C are mxm
  *
  */
-int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int m, int n)
+int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int numParams, int numPoints)
 {
     int i;
     int rnk;
     Real fact;
 
-    rnk = dlevmar_LUinverse(JtJ, C, m);
+    rnk = dlevmar_LUinverse(JtJ, C, numParams);
     if (!rnk) return 0;
 
-    rnk = m; /* assume full rank */
+    rnk = numParams; /* assume full rank */
 
-    fact = sumsq / (Real)(n - rnk);
-    for (i = 0; i < m * m; ++i)
+    fact = sumsq / (Real)(numPoints - rnk);
+    for (i = 0; i < numParams * numParams; ++i)
         C[i] *= fact;
 
     return rnk;
@@ -264,7 +302,7 @@ int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int m, int n)
  * The function returns 0 in case of error, 1 if successful
  *
  */
-int levmar::dlevmar_LUinverse(Real* A, Real* B, int m)
+int levmar::dlevmar_LUinverse(Real* A, Real* B, int numParams)
 {
     void* buf = NULL;
     int buf_sz = 0;
@@ -274,10 +312,10 @@ int levmar::dlevmar_LUinverse(Real* A, Real* B, int m)
     Real* a, * x, * work, max, sum, tmp;
 
     /* calculate required memory size */
-    idx_sz = m;
-    a_sz = m * m;
-    x_sz = m;
-    work_sz = m;
+    idx_sz = numParams;
+    a_sz = numParams * numParams;
+    x_sz = numParams;
+    work_sz = numParams;
 
     std::vector<Real> work_(a_sz + x_sz + work_sz);
     std::vector<int> idx_(idx_sz);
@@ -291,83 +329,83 @@ int levmar::dlevmar_LUinverse(Real* A, Real* B, int m)
     for (i = 0; i < a_sz; ++i) a[i] = A[i];
 
     /* compute the LU decomposition of a row permutation of matrix a; the permutation itself is saved in idx[] */
-    for (i = 0; i < m; ++i) {
+    for (i = 0; i < numParams; ++i) {
         max = 0.0;
-        for (j = 0; j < m; ++j)
-            if ((tmp = std::abs(a[i * m + j])) > max)
+        for (j = 0; j < numParams; ++j)
+            if ((tmp = std::abs(a[i * numParams + j])) > max)
                 max = tmp;
         if (max == 0.0) {
-            fprintf(stderr, "Singular matrix A in dlevmar_LUinverse()!\n");
+            std::cerr << "Singular matrix A in dlevmar_LUinverse()!" << std::endl;
             return 0;
         }
         work[i] = 1.0 / max;
     }
 
-    for (j = 0; j < m; ++j) {
+    for (j = 0; j < numParams; ++j) {
         for (i = 0; i < j; ++i) {
-            sum = a[i * m + j];
+            sum = a[i * numParams + j];
             for (k = 0; k < i; ++k)
-                sum -= a[i * m + k] * a[k * m + j];
-            a[i * m + j] = sum;
+                sum -= a[i * numParams + k] * a[k * numParams + j];
+            a[i * numParams + j] = sum;
         }
         max = 0.0;
-        for (i = j; i < m; ++i) {
-            sum = a[i * m + j];
+        for (i = j; i < numParams; ++i) {
+            sum = a[i * numParams + j];
             for (k = 0; k < j; ++k)
-                sum -= a[i * m + k] * a[k * m + j];
-            a[i * m + j] = sum;
+                sum -= a[i * numParams + k] * a[k * numParams + j];
+            a[i * numParams + j] = sum;
             if ((tmp = work[i] * std::abs(sum)) >= max) {
                 max = tmp;
                 maxi = i;
             }
         }
         if (j != maxi) {
-            for (k = 0; k < m; ++k) {
-                tmp = a[maxi * m + k];
-                a[maxi * m + k] = a[j * m + k];
-                a[j * m + k] = tmp;
+            for (k = 0; k < numParams; ++k) {
+                tmp = a[maxi * numParams + k];
+                a[maxi * numParams + k] = a[j * numParams + k];
+                a[j * numParams + k] = tmp;
             }
             work[maxi] = work[j];
         }
         idx[j] = maxi;
-        if (a[j * m + j] == 0.0)
-            a[j * m + j] = LM_REAL_EPSILON;
-        if (j != m - 1) {
-            tmp = 1.0 / (a[j * m + j]);
-            for (i = j + 1; i < m; ++i)
-                a[i * m + j] *= tmp;
+        if (a[j * numParams + j] == 0.0)
+            a[j * numParams + j] = LM_REAL_EPSILON;
+        if (j != numParams - 1) {
+            tmp = 1.0 / (a[j * numParams + j]);
+            for (i = j + 1; i < numParams; ++i)
+                a[i * numParams + j] *= tmp;
         }
     }
 
     /* The decomposition has now replaced a. Solve the m linear systems using
         * forward and back substitution
         */
-    for (l = 0; l < m; ++l) {
-        for (i = 0; i < m; ++i) x[i] = 0.0;
+    for (l = 0; l < numParams; ++l) {
+        for (i = 0; i < numParams; ++i) x[i] = 0.0;
         x[l] = 1.0;
 
-        for (i = k = 0; i < m; ++i) {
+        for (i = k = 0; i < numParams; ++i) {
             j = idx[i];
             sum = x[j];
             x[j] = x[i];
             if (k != 0)
                 for (j = k - 1; j < i; ++j)
-                    sum -= a[i * m + j] * x[j];
+                    sum -= a[i * numParams + j] * x[j];
             else
                 if (sum != 0.0)
                     k = i + 1;
             x[i] = sum;
         }
 
-        for (i = m - 1; i >= 0; --i) {
+        for (i = numParams - 1; i >= 0; --i) {
             sum = x[i];
-            for (j = i + 1; j < m; ++j)
-                sum -= a[i * m + j] * x[j];
-            x[i] = sum / a[i * m + i];
+            for (j = i + 1; j < numParams; ++j)
+                sum -= a[i * numParams + j] * x[j];
+            x[i] = sum / a[i * numParams + i];
         }
 
-        for (i = 0; i < m; ++i)
-            B[i * m + l] = x[i];
+        for (i = 0; i < numParams; ++i)
+            B[i * numParams + l] = x[i];
     }
     return 1;
 }

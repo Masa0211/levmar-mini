@@ -1,9 +1,4 @@
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <float.h>
+#include <iostream>
 #include <cmath>
 
 #include "levmar.h"
@@ -11,13 +6,18 @@
 
 using levmar::Real;
 
-levmar::LevMar::LevMar(int m, int n)
-    : m_(m)
-    , n_(n)
-    , luBuffer_(m * m + m)
-    , luIdx_(m)
-    , lmWork_(workSize(m, n))
+levmar::LevMar::LevMar(int numParams, int numPoints)
+    : numParams_(numParams)
+    , numPoints_(numPoints)
+    , luBuffer_(numParams * numParams + numParams)
+    , luIdx_(numParams)
+    , lmWork_(workSize(numParams, numPoints))
 {
+    if (numParams > numPoints)
+    {
+        std::cerr << "LevMar: cannot solve a problem with fewer measurements " << numPoints << " than unknowns " << numParams << std::endl;
+        throw;
+    }
 }
 
 /*
@@ -39,11 +39,9 @@ levmar::LevMar::LevMar(int m, int n)
   * the aid of finite differences (forward or central, see the comment for the opts argument)
   */
 int levmar::LevMar::dlevmar_dif(
-    std::function<void(Real*, Real*, int m, int n)> func,
+    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
     Real* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
     Real* x,         /* I: measurement vector. NULL implies a zero vector */
-    int m,              /* I: parameter vector dimension (i.e. #unknowns) */
-    int n,              /* I: measurement vector dimension */
     int itmax,          /* I: maximum number of iterations */
     Real opts[5],    /* I: opts[0-4] = minim. options [\mu, \epsilon1, \epsilon2, \epsilon3, \delta]. Respectively the
                          * scale factor for initial \mu, stopping thresholds for ||J^T e||_inf, ||Dp||_2 and ||e||_2 and
@@ -69,6 +67,9 @@ int levmar::LevMar::dlevmar_dif(
     */
     Real* covar)    /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
 {
+    const int numParams = numParams_; // parameter vector dimension (i.e. #unknowns)
+    const int numPoints = numPoints_; // measurement vector dimension
+
     int i, j, k, l;
     int issolved;
     /* temp work arrays */
@@ -91,16 +92,11 @@ int levmar::LevMar::dlevmar_dif(
     Real p_L2, Dp_L2 = LM_REAL_MAX, dF, dL;
     Real tau, eps1, eps2, eps2_sq, eps3, delta;
     Real init_p_eL2;
-    int nu, nu2, stop = 0, nfev, njap = 0, nlss = 0, K = (m >= 10) ? m : 10, updjac, updp = 1, newjac;
-    const int nm = n * m;
+    int nu, nu2, stop = 0, nfev, njap = 0, nlss = 0, K = (numParams >= 10) ? numParams : 10, updjac, updp = 1, newjac;
+    const int nm = numPoints * numParams;
 
     mu = jacTe_inf = p_L2 = 0.0; /* -Wall */
     updjac = newjac = 0; /* -Wall */
-
-    if (n < m) {
-        fprintf(stderr, "dlevmar_dif(): cannot solve a problem with fewer measurements [%d] than unknowns [%d]\n", n, m);
-        return LM_ERROR;
-    }
 
     if (opts) {
         tau = opts[0];
@@ -125,20 +121,20 @@ int levmar::LevMar::dlevmar_dif(
 
     /* set up work arrays */
     e = lmWork_.data();
-    hx = e + n;
-    jacTe = hx + n;
-    jac = jacTe + m;
+    hx = e + numPoints;
+    jacTe = hx + numPoints;
+    jac = jacTe + numParams;
     jacTjac = jac + nm;
-    Dp = jacTjac + m * m;
-    diag_jacTjac = Dp + m;
-    pDp = diag_jacTjac + m;
-    wrk = pDp + m;
-    wrk2 = wrk + n;
+    Dp = jacTjac + numParams * numParams;
+    diag_jacTjac = Dp + numParams;
+    pDp = diag_jacTjac + numParams;
+    wrk = pDp + numParams;
+    wrk2 = wrk + numPoints;
 
     /* compute e=x - f(p) and its L2 norm */
-    func(p, hx, m, n); nfev = 1;
+    func(p, hx, numParams, numPoints); nfev = 1;
     /* ### e=x-hx, p_eL2=||e|| */
-    p_eL2 = dlevmar_L2nrmxmy(e, x, hx, n);
+    p_eL2 = dlevmar_L2nrmxmy(e, x, hx, numPoints);
     init_p_eL2 = p_eL2;
     if (!std::isfinite(p_eL2)) stop = 7;
 
@@ -158,12 +154,12 @@ int levmar::LevMar::dlevmar_dif(
 
         if ((updp && nu > 16) || updjac == K) { /* compute difference approximation to J */
             if (using_ffdif) { /* use forward differences */
-                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, m, n);
-                ++njap; nfev += m;
+                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, numParams, numPoints);
+                ++njap; nfev += numParams;
             }
             else { /* use central differences */
-                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, m, n);
-                ++njap; nfev += 2 * m;
+                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, numParams, numPoints);
+                ++njap; nfev += 2 * numParams;
             }
             nu = 2; updjac = 0; updp = 0; newjac = 1;
         }
@@ -195,50 +191,50 @@ int levmar::LevMar::dlevmar_dif(
                 Real alpha, * jaclm, * jacTjacim;
 
                 /* looping downwards saves a few computations */
-                for (i = m * m; i-- > 0; )
+                for (i = numParams * numParams; i-- > 0; )
                     jacTjac[i] = 0.0;
-                for (i = m; i-- > 0; )
+                for (i = numParams; i-- > 0; )
                     jacTe[i] = 0.0;
 
-                for (l = n; l-- > 0; ) {
-                    jaclm = jac + l * m;
-                    for (i = m; i-- > 0; ) {
-                        jacTjacim = jacTjac + i * m;
-                        alpha = jaclm[i]; //jac[l*m+i];
+                for (l = numPoints; l-- > 0; ) {
+                    jaclm = jac + l * numParams;
+                    for (i = numParams; i-- > 0; ) {
+                        jacTjacim = jacTjac + i * numParams;
+                        alpha = jaclm[i]; //jac[l*numParams+i];
                         for (j = i + 1; j-- > 0; ) /* j<=i computes lower triangular part only */
-                            jacTjacim[j] += jaclm[j] * alpha; //jacTjac[i*m+j]+=jac[l*m+j]*alpha
+                            jacTjacim[j] += jaclm[j] * alpha; //jacTjac[i*numParams+j]+=jac[l*numParams+j]*alpha
 
                         /* J^T e */
                         jacTe[i] += alpha * e[l];
                     }
                 }
 
-                for (i = m; i-- > 0; ) /* copy to upper part */
-                    for (j = i + 1; j < m; ++j)
-                        jacTjac[i * m + j] = jacTjac[j * m + i];
+                for (i = numParams; i-- > 0; ) /* copy to upper part */
+                    for (j = i + 1; j < numParams; ++j)
+                        jacTjac[i * numParams + j] = jacTjac[j * numParams + i];
             }
             else { // this is a large problem
                 /* Cache efficient computation of J^T J based on blocking
                  */
-                dlevmar_trans_mat_mat_mult(jac, jacTjac, n, m);
+                dlevmar_trans_mat_mat_mult(jac, jacTjac, numPoints, numParams);
 
                 /* cache efficient computation of J^T e */
-                for (i = 0; i < m; ++i)
+                for (i = 0; i < numParams; ++i)
                     jacTe[i] = 0.0;
 
-                for (i = 0; i < n; ++i) {
+                for (i = 0; i < numPoints; ++i) {
                     Real* jacrow;
 
-                    for (l = 0, jacrow = jac + i * m, tmp = e[i]; l < m; ++l)
+                    for (l = 0, jacrow = jac + i * numParams, tmp = e[i]; l < numParams; ++l)
                         jacTe[l] += jacrow[l] * tmp;
                 }
             }
 
             /* Compute ||J^T e||_inf and ||p||^2 */
-            for (i = 0, p_L2 = jacTe_inf = 0.0; i < m; ++i) {
+            for (i = 0, p_L2 = jacTe_inf = 0.0; i < numParams; ++i) {
                 if (jacTe_inf < (tmp = std::abs(jacTe[i]))) jacTe_inf = tmp;
 
-                diag_jacTjac[i] = jacTjac[i * m + i]; /* save diagonal entries so that augmentation can be later canceled */
+                diag_jacTjac[i] = jacTjac[i * numParams + i]; /* save diagonal entries so that augmentation can be later canceled */
                 p_L2 += p[i] * p[i];
             }
             //p_L2=sqrt(p_L2);
@@ -253,7 +249,7 @@ int levmar::LevMar::dlevmar_dif(
 
         /* compute initial damping factor */
         if (k == 0) {
-            for (i = 0, tmp = LM_REAL_MIN; i < m; ++i)
+            for (i = 0, tmp = LM_REAL_MIN; i < numParams; ++i)
                 if (diag_jacTjac[i] > tmp) tmp = diag_jacTjac[i]; /* find max diagonal element */
             mu = tau * tmp;
         }
@@ -261,16 +257,16 @@ int levmar::LevMar::dlevmar_dif(
         /* determine increment using adaptive damping */
 
         /* augment normal equations */
-        for (i = 0; i < m; ++i)
-            jacTjac[i * m + i] += mu;
+        for (i = 0; i < numParams; ++i)
+            jacTjac[i * numParams + i] += mu;
 
         /* solve augmented equations */
         /* use the LU included with levmar */
-        issolved = dAx_eq_b_LU(jacTjac, jacTe, Dp, m); ++nlss;
+        issolved = dAx_eq_b_LU(jacTjac, jacTe, Dp, numParams); ++nlss;
 
         if (issolved) {
             /* compute p's new estimate and ||Dp||^2 */
-            for (i = 0, Dp_L2 = 0.0; i < m; ++i) {
+            for (i = 0, Dp_L2 = 0.0; i < numParams; ++i) {
                 pDp[i] = p[i] + (tmp = Dp[i]);
                 Dp_L2 += tmp * tmp;
             }
@@ -288,10 +284,10 @@ int levmar::LevMar::dlevmar_dif(
                 break;
             }
 
-            func(pDp, wrk, m, n); ++nfev; /* evaluate function at p + Dp */
+            func(pDp, wrk, numParams, numPoints); ++nfev; /* evaluate function at p + Dp */
             /* compute ||e(pDp)||_2 */
             /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
-            pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, n);
+            pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, numPoints);
             if (!std::isfinite(pDp_eL2)) { /* sum of squares is not finite, most probably due to a user error.
                                       * This check makes sure that the loop terminates early in the case
                                       * of invalid input. Thanks to Steve Danauskas for suggesting it
@@ -303,18 +299,18 @@ int levmar::LevMar::dlevmar_dif(
 
             dF = p_eL2 - pDp_eL2;
             if (updp || dF > 0) { /* update jac */
-                for (i = 0; i < n; ++i) {
-                    for (l = 0, tmp = 0.0; l < m; ++l)
-                        tmp += jac[i * m + l] * Dp[l]; /* (J * Dp)[i] */
+                for (i = 0; i < numPoints; ++i) {
+                    for (l = 0, tmp = 0.0; l < numParams; ++l)
+                        tmp += jac[i * numParams + l] * Dp[l]; /* (J * Dp)[i] */
                     tmp = (wrk[i] - hx[i] - tmp) / Dp_L2; /* (f(p+dp)[i] - f(p)[i] - (J * Dp)[i])/(dp^T*dp) */
-                    for (j = 0; j < m; ++j)
-                        jac[i * m + j] += tmp * Dp[j];
+                    for (j = 0; j < numParams; ++j)
+                        jac[i * numParams + j] += tmp * Dp[j];
                 }
                 ++updjac;
                 newjac = 1;
             }
 
-            for (i = 0, dL = 0.0; i < m; ++i)
+            for (i = 0, dL = 0.0; i < numParams; ++i)
                 dL += Dp[i] * (mu * Dp[i] + jacTe[i]);
 
             if (dL > 0.0 && dF > 0.0) { /* reduction in error, increment is accepted */
@@ -323,10 +319,10 @@ int levmar::LevMar::dlevmar_dif(
                 mu = mu * ((tmp >= ONE_THIRD) ? tmp : ONE_THIRD);
                 nu = 2;
 
-                for (i = 0; i < m; ++i) /* update p's estimate */
+                for (i = 0; i < numParams; ++i) /* update p's estimate */
                     p[i] = pDp[i];
 
-                for (i = 0; i < n; ++i) { /* update e, hx and ||e||_2 */
+                for (i = 0; i < numPoints; ++i) { /* update e, hx and ||e||_2 */
                     e[i] = wrk2[i]; //x[i]-wrk[i];
                     hx[i] = wrk[i];
                 }
@@ -348,22 +344,22 @@ int levmar::LevMar::dlevmar_dif(
         }
         nu = nu2;
 
-        for (i = 0; i < m; ++i) /* restore diagonal J^T J entries */
-            jacTjac[i * m + i] = diag_jacTjac[i];
+        for (i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
+            jacTjac[i * numParams + i] = diag_jacTjac[i];
     }
 
     if (k >= itmax) stop = 3;
 
-    for (i = 0; i < m; ++i) /* restore diagonal J^T J entries */
-        jacTjac[i * m + i] = diag_jacTjac[i];
+    for (i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
+        jacTjac[i * numParams + i] = diag_jacTjac[i];
 
     if (info) {
         info[0] = init_p_eL2;
         info[1] = p_eL2;
         info[2] = jacTe_inf;
         info[3] = Dp_L2;
-        for (i = 0, tmp = LM_REAL_MIN; i < m; ++i)
-            if (tmp < jacTjac[i * m + i]) tmp = jacTjac[i * m + i];
+        for (i = 0, tmp = LM_REAL_MIN; i < numParams; ++i)
+            if (tmp < jacTjac[i * numParams + i]) tmp = jacTjac[i * numParams + i];
         info[4] = mu / tmp;
         info[5] = (Real)k;
         info[6] = (Real)stop;
@@ -374,7 +370,7 @@ int levmar::LevMar::dlevmar_dif(
 
     /* covariance matrix */
     if (covar) {
-        dlevmar_covar(jacTjac, covar, p_eL2, m, n);
+        dlevmar_covar(jacTjac, covar, p_eL2, numParams, numPoints);
     }
 
     return (stop != 4 && stop != 7) ? k : LM_ERROR;
@@ -399,139 +395,95 @@ int levmar::LevMar::dlevmar_dif(
  * A call with NULL as the first argument forces this memory to be released.
  */
 
-int levmar::LevMar::dAx_eq_b_LU(Real* A, Real* B, Real* x, int m)
+int levmar::LevMar::dAx_eq_b_LU(Real* A, Real* B, Real* x, int numParams)
 {
 
     if (!A)
         return 1; /* NOP */
 
     /* calculate required memory size */
-    const auto a_sz = m * m;
+    const auto a_sz = numParams * numParams;
     const auto a = luBuffer_.data();
     const auto work = a + a_sz;
     const auto idx = luIdx_.data();
 
     /* avoid destroying A, B by copying them to a, x resp. */
     memcpy(a, A, a_sz * sizeof(Real));
-    memcpy(x, B, m * sizeof(Real));
+    memcpy(x, B, numParams * sizeof(Real));
 
     Real tmp = 0.0;
 
     /* compute the LU decomposition of a row permutation of matrix a; the permutation itself is saved in idx[] */
-    for (auto i = 0; i < m; ++i) {
+    for (auto i = 0; i < numParams; ++i) {
         Real max = 0.0;
-        for (auto j = 0; j < m; ++j)
-            if ((tmp = std::abs(a[i * m + j])) > max)
+        for (auto j = 0; j < numParams; ++j)
+            if ((tmp = std::abs(a[i * numParams + j])) > max)
                 max = tmp;
         if (max == 0.0) {
-            fprintf(stderr, "Singular matrix A in dAx_eq_b_LU()!\n");
+            std::cerr << "Singular matrix A in dAx_eq_b_LU()!" << std::endl;
             return 0;
         }
         work[i] = 1.0 / max;
     }
 
     int maxi = -1;
-    for (auto j = 0; j < m; ++j) {
+    for (auto j = 0; j < numParams; ++j) {
         for (auto i = 0; i < j; ++i) {
-            auto sum = a[i * m + j];
+            auto sum = a[i * numParams + j];
             for (auto k = 0; k < i; ++k)
-                sum -= a[i * m + k] * a[k * m + j];
-            a[i * m + j] = sum;
+                sum -= a[i * numParams + k] * a[k * numParams + j];
+            a[i * numParams + j] = sum;
         }
         Real max = 0.0;
-        for (auto i = j; i < m; ++i) {
-            auto sum = a[i * m + j];
+        for (auto i = j; i < numParams; ++i) {
+            auto sum = a[i * numParams + j];
             for (auto k = 0; k < j; ++k)
-                sum -= a[i * m + k] * a[k * m + j];
-            a[i * m + j] = sum;
+                sum -= a[i * numParams + k] * a[k * numParams + j];
+            a[i * numParams + j] = sum;
             if ((tmp = work[i] * std::abs(sum)) >= max) {
                 max = tmp;
                 maxi = i;
             }
         }
         if (j != maxi) {
-            for (auto k = 0; k < m; ++k) {
-                tmp = a[maxi * m + k];
-                a[maxi * m + k] = a[j * m + k];
-                a[j * m + k] = tmp;
+            for (auto k = 0; k < numParams; ++k) {
+                tmp = a[maxi * numParams + k];
+                a[maxi * numParams + k] = a[j * numParams + k];
+                a[j * numParams + k] = tmp;
             }
             work[maxi] = work[j];
         }
         idx[j] = maxi;
-        if (a[j * m + j] == 0.0)
-            a[j * m + j] = LM_REAL_EPSILON;
-        if (j != m - 1) {
-            tmp = 1.0 / (a[j * m + j]);
-            for (auto i = j + 1; i < m; ++i)
-                a[i * m + j] *= tmp;
+        if (a[j * numParams + j] == 0.0)
+            a[j * numParams + j] = LM_REAL_EPSILON;
+        if (j != numParams - 1) {
+            tmp = 1.0 / (a[j * numParams + j]);
+            for (auto i = j + 1; i < numParams; ++i)
+                a[i * numParams + j] *= tmp;
         }
     }
 
     /* The decomposition has now replaced a. Solve the linear system using
      * forward and back substitution
      */
-    for (auto i = 0, k = 0; i < m; ++i) {
+    for (auto i = 0, k = 0; i < numParams; ++i) {
         auto j = idx[i];
         auto sum = x[j];
         x[j] = x[i];
         if (k != 0)
             for (auto j = k - 1; j < i; ++j)
-                sum -= a[i * m + j] * x[j];
+                sum -= a[i * numParams + j] * x[j];
         else
             if (sum != 0.0)
                 k = i + 1;
         x[i] = sum;
     }
 
-    for (auto i = m - 1; i >= 0; --i) {
+    for (auto i = numParams - 1; i >= 0; --i) {
         auto sum = x[i];
-        for (auto j = i + 1; j < m; ++j)
-            sum -= a[i * m + j] * x[j];
-        x[i] = sum / a[i * m + i];
+        for (auto j = i + 1; j < numParams; ++j)
+            sum -= a[i * numParams + j] * x[j];
+        x[i] = sum / a[i * numParams + i];
     }
     return 1;
 }
-
-
-// ------------------------------ misc.cpp ---------------------------- //
-
-
-
-/*
- * Check the Jacobian of a n-valued nonlinear function in m variables
- * evaluated at a point p, for consistency with the function itself.
- *
- * Based on fortran77 subroutine CHKDER by
- * Burton S. Garbow, Kenneth E. Hillstrom, Jorge J. More
- * Argonne National Laboratory. MINPACK project. March 1980.
- *
- *
- * func points to a function from R^m --> R^n: Given a p in R^m it yields hx in R^n
- * jacf points to a function implementing the Jacobian of func, whose correctness
- *     is to be tested. Given a p in R^m, jacf computes into the nxm matrix j the
- *     Jacobian of func at p. Note that row i of j corresponds to the gradient of
- *     the i-th component of func, evaluated at p.
- * p is an input array of length m containing the point of evaluation.
- * m is the number of variables
- * n is the number of functions
- * adata points to possible additional data and is passed uninterpreted
- *     to func, jacf.
- * err is an array of length n. On output, err contains measures
- *     of correctness of the respective gradients. if there is
- *     no severe loss of significance, then if err[i] is 1.0 the
- *     i-th gradient is correct, while if err[i] is 0.0 the i-th
- *     gradient is incorrect. For values of err between 0.0 and 1.0,
- *     the categorization is less certain. In general, a value of
- *     err[i] greater than 0.5 indicates that the i-th gradient is
- *     probably correct, while a value of err[i] less than 0.5
- *     indicates that the i-th gradient is probably incorrect.
- *
- *
- * The function does not perform reliably if cancellation or
- * rounding errors cause a severe loss of significance in the
- * evaluation of a function. therefore, none of the components
- * of p should be unusually small (in particular, zero) or any
- * other value which may cause loss of significance.
- */
-
-

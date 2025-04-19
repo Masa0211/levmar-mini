@@ -40,13 +40,13 @@ namespace levmar
     public:
 
         LevMar(
-            int m, // parameter vector dimension (i.e. #unknowns)
-            int n  // measurement vector dimension
+            int numParams, // (= m) number of optimization parameters (i.e. #unknowns)
+            int numPoints  // (= n) number of data points/observations
         );
 
         int dlevmar_dif(
-            std::function<void(Real*, Real*, int m, int n)> func,
-            double* p, double* x, int m, int n, int itmax, double* opts,
+            std::function<void(Real*, Real*, int numParams, int numPoints)> func,
+            double* p, double* x, int itmax, double* opts,
             double* info, double* covar);
 
 
@@ -55,17 +55,17 @@ namespace levmar
          * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
          */
         int inline workSize(
-            int npar, // (=m) parameter vector dimension (i.e. #unknowns)
-            int nmeas // (=n) measurement vector dimension
+            int numParams, // (= m) parameter vector dimension (i.e. #unknowns)
+            int numPoints // (= n) measurement vector dimension
         ) const noexcept
         {
-            return 4 * (nmeas) + 4 * (npar) + (nmeas) * (npar) + (npar) * (npar);
+            return 4 * (numPoints) + 4 * (numParams) + (numPoints) * (numParams) + (numParams) * (numParams);
         }
 
-        int dAx_eq_b_LU(double* A, double* B, double* x, int n);
+        int dAx_eq_b_LU(double* A, double* B, double* x, int numPoints);
 
-        int m_;
-        int n_;
+        int numParams_;
+        int numPoints_;
         std::vector<double> luBuffer_; // m * m matrix and m vector
         std::vector<int> luIdx_; // m vector
         std::vector<double> lmWork_; // memory for levmar main algorithm
