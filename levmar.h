@@ -50,7 +50,6 @@
 /* work arrays size for dlevmar_der and dlevmar_dif functions.
  * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
  */
-#define LM_DER_WORKSZ(npar, nmeas) (2*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
 #define LM_DIF_WORKSZ(npar, nmeas) (4*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
 
 #define LM_OPTS_SZ    	 5 /* max(4, 5) */
@@ -63,11 +62,6 @@
 
 /* double precision LM, with & without Jacobian */
 /* unconstrained minimization */
-//int dlevmar_der(
-//      void (*func)(double *p, double *hx, int m, int n, void *adata),
-//      void (*jacf)(double *p, double *j, int m, int n, void *adata),
-//      double *p, double *x, int m, int n, int itmax, double *opts,
-//      double *info, double *work, double *covar, void *adata);
 
 int dlevmar_dif(
       void (*func)(double *p, double *hx, int m, int n, void *adata),
