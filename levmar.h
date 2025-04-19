@@ -38,6 +38,20 @@ namespace levmar
     class LevMar
     {
     public:
+        /* opts[0-4] = minim. options [\mu, \epsilon1, \epsilon2, \epsilon3, \delta]. Respectively the
+         * scale factor for initial \mu, stopping thresholds for ||J^T e||_inf, ||Dp||_2 and ||e||_2 and
+         * the step used in difference approximation to the Jacobian. Set to NULL for defaults to be used.
+         * If \delta<0, the Jacobian is approximated with central differences which are more accurate
+         * (but slower!) compared to the forward differences employed by default.
+        */
+        struct Options
+        {
+            Real mu = LM_INIT_MU; // initial value for the damping factor
+            Real eps1 = LM_STOP_THRESH; // stopping threshold for ||J^T e||_inf
+            Real eps2 = LM_STOP_THRESH; // stopping threshold for ||Dp||_2
+            Real eps3 = LM_STOP_THRESH; // stopping threshold for ||e||_2
+            Real delta = LM_DIFF_DELTA; // step used in difference approximation to the Jacobian
+        };
 
         LevMar(
             int numParams, // (= m) number of optimization parameters (i.e. #unknowns)
@@ -46,7 +60,8 @@ namespace levmar
 
         int dlevmar_dif(
             std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-            double* p, double* x, int itmax, double* opts,
+            double* p, double* x, int itmax,
+            const Options& opts,
             double* info, double* covar);
 
 

@@ -43,12 +43,7 @@ int levmar::LevMar::dlevmar_dif(
     Real* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
     Real* x,         /* I: measurement vector. NULL implies a zero vector */
     int itmax,          /* I: maximum number of iterations */
-    Real opts[5],    /* I: opts[0-4] = minim. options [\mu, \epsilon1, \epsilon2, \epsilon3, \delta]. Respectively the
-                         * scale factor for initial \mu, stopping thresholds for ||J^T e||_inf, ||Dp||_2 and ||e||_2 and
-                         * the step used in difference approximation to the Jacobian. Set to NULL for defaults to be used.
-                         * If \delta<0, the Jacobian is approximated with central differences which are more accurate
-                         * (but slower!) compared to the forward differences employed by default.
-                         */
+    const Options& opts, /* I: options for the minimization */
     Real info[LM_INFO_SZ],
     /* O: information regarding the minimization. Set to NULL if don't care
     * info[0]= ||e||_2 at initial p.
@@ -84,40 +79,26 @@ int levmar::LevMar::dlevmar_dif(
         * wrk,        /* nx1 */
         * wrk2;       /* nx1, used only for holding a temporary e vector and when differentiating with central differences */
 
-    int using_ffdif = 1;
-
     Real mu;  /* damping constant */
     Real tmp; /* mainly used in matrix & vector multiplications */
     Real p_eL2, jacTe_inf, pDp_eL2; /* ||e(p)||_2, ||J^T e||_inf, ||e(p+Dp)||_2 */
     Real p_L2, Dp_L2 = LM_REAL_MAX, dF, dL;
-    Real tau, eps1, eps2, eps2_sq, eps3, delta;
     Real init_p_eL2;
-    int nu, nu2, stop = 0, nfev, njap = 0, nlss = 0, K = (numParams >= 10) ? numParams : 10, updjac, updp = 1, newjac;
+    int nu, nu2, stop = 0, nfev, njap = 0, nlss = 0, updjac, updp = 1, newjac;
+    const int K = (numParams >= 10) ? numParams : 10;
     const int nm = numPoints * numParams;
 
     mu = jacTe_inf = p_L2 = 0.0; /* -Wall */
     updjac = newjac = 0; /* -Wall */
 
-    if (opts) {
-        tau = opts[0];
-        eps1 = opts[1];
-        eps2 = opts[2];
-        eps2_sq = opts[2] * opts[2];
-        eps3 = opts[3];
-        delta = opts[4];
-        if (delta < 0.0) {
-            delta = -delta; /* make positive */
-            using_ffdif = 0; /* use central differencing */
-        }
-    }
-    else { // use default values
-        tau = LM_INIT_MU;
-        eps1 = LM_STOP_THRESH;
-        eps2 = LM_STOP_THRESH;
-        eps2_sq = LM_STOP_THRESH * LM_STOP_THRESH;
-        eps3 = LM_STOP_THRESH;
-        delta = LM_DIFF_DELTA;
-    }
+    const Real tau = opts.mu;
+    const Real eps1 = opts.eps1;
+    const Real eps2 = opts.eps2;
+    const Real eps2_sq = eps2 * eps2;
+    const Real eps3 = opts.eps3;
+    const Real delta = std::abs(opts.delta);
+    // use central differencing if delta < 0.0
+    const int using_ffdif = (delta >= 0.0) ? 1 : 0; // use forward differences by default
 
     /* set up work arrays */
     e = lmWork_.data();

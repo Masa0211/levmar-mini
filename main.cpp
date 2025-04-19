@@ -40,7 +40,7 @@ void test_ross()
     using namespace levmar;
 
     double info[LM_INFO_SZ];
-    double opts[] = { LM_INIT_MU, 1E-15, 1E-15, 1E-20, LM_DIFF_DELTA };
+    levmar::LevMar::Options opts = { LM_INIT_MU, 1E-15, 1E-15, 1E-20, LM_DIFF_DELTA };
 
     int numParams = 2;
     int numPoints = 2;
@@ -109,7 +109,7 @@ void test_osborne()
       4.9E-1, 4.78E-1, 4.67E-1, 4.57E-1, 4.48E-1, 4.38E-1, 4.31E-1,
       4.24E-1, 4.2E-1, 4.14E-1, 4.11E-1, 4.06E-1 };
 
-    double opts[] = { LM_INIT_MU, 1E-15, 1E-15, 1E-20, LM_DIFF_DELTA };
+    levmar::LevMar::Options opts = { LM_INIT_MU, 1E-15, 1E-15, 1E-20, LM_DIFF_DELTA };
     double info[LM_INFO_SZ];
 
     int numParams = 5;
