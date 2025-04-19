@@ -1,6 +1,7 @@
-/* 
+#pragma once
+/*
 ////////////////////////////////////////////////////////////////////////////////////
-// 
+//
 //  Prototypes and definitions for the Levenberg - Marquardt minimization algorithm
 //  Copyright (C) 2004  Manolis Lourakis (lourakis at ics forth gr)
 //  Institute of Computer Science, Foundation for Research & Technology - Hellas
@@ -19,55 +20,49 @@
 ////////////////////////////////////////////////////////////////////////////////////
 */
 
-#ifndef _LEVMAR_H_
-#define _LEVMAR_H_
+#include <cmath>
+#include <vector>
+#include <memory>
 
+namespace levmar
+{
+    using Real = double;
 
-/************************************* Start of configuration options *************************************/
-/* Note that when compiling with CMake, this configuration section is automatically generated
- * based on the user's input, see levmar.h.in
- */
-                      
-/* to avoid the overhead of repeated mallocs(), routines in axb.cpp can be instructed to
- * retain working memory between calls. Such a choice, however, renders these routines
- * non-reentrant and is not safe in a shared memory multiprocessing environment.
- * Bellow, an attempt is made to issue a warning if this option is turned on and OpenMP
- * is being used (note that this will work only if omp.h is included before levmar.h)
- */
-#define LINSOLVERS_RETAIN_MEMORY
-#if (defined(_OPENMP))
-# ifdef LINSOLVERS_RETAIN_MEMORY
-#  ifdef _MSC_VER
-#  pragma message("LINSOLVERS_RETAIN_MEMORY is not safe in a multithreaded environment and should be turned off!")
-#  else
-#  warning LINSOLVERS_RETAIN_MEMORY is not safe in a multithreaded environment and should be turned off!
-#  endif /* _MSC_VER */
-# endif /* LINSOLVERS_RETAIN_MEMORY */
-#endif /* _OPENMP */
+    class LevMar
+    {
+    public:
+        constexpr static double LMA_OPTS_SZ = 5;
+        constexpr static double LMA_INFO_SZ = 1;
+        constexpr static double LMA_ERROR = -1;
+        constexpr static double LMA_INIT_MU = 1.e-03;
+        constexpr static double LMA_STOP_THRESH = 1.e-17;
+        constexpr static double LMA_DIFF_DELTA = 1.e-06;
 
-/****************** End of configuration options, no changes necessary beyond this point ******************/
+        LevMar(
+            int n, // parameter vector dimension (i.e. #unknowns)
+            int m  // measurement vector dimension
+        );
 
-/* work arrays size for dlevmar_der and dlevmar_dif functions.
- * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
- */
-#define LM_DIF_WORKSZ(npar, nmeas) (4*(nmeas) + 4*(npar) + (nmeas)*(npar) + (npar)*(npar))
+        int dlevmar_dif(
+            void (*func)(double* p, double* hx, int m, int n, void* adata),
+            double* p, double* x, int m, int n, int itmax, double* opts,
+            double* info, double* work, double* covar, void* adata);
 
-#define LM_OPTS_SZ    	 5 /* max(4, 5) */
-#define LM_INFO_SZ    	 10
-#define LM_ERROR         -1
-#define LM_INIT_MU    	 1E-03
-#define LM_STOP_THRESH	 1E-17
-#define LM_DIFF_DELTA    1E-06
-#define LM_VERSION       "2.6 (November 2011)"
+        int dAx_eq_b_LU_noLapack(double* A, double* B, double* x, int n);
 
-/* double precision LM, with & without Jacobian */
-/* unconstrained minimization */
+    private:
+        /* work arrays size for dlevmar_der and dlevmar_dif functions.
+         * should be multiplied by sizeof(double) or sizeof(float) to be converted to bytes
+         */
+        int inline workSize(int npar, int nmeas) const noexcept
+        {
+            return 4 * (nmeas)+4 * (npar)+(nmeas) * (npar)+(npar) * (npar);
+        }
 
-int dlevmar_dif(
-      void (*func)(double *p, double *hx, int m, int n, void *adata),
-      double *p, double *x, int m, int n, int itmax, double *opts,
-      double *info, double *work, double *covar, void *adata);
+        /* covariance of LS fit */
+        int dlevmar_covar(double* JtJ, double* C, double sumsq, int m, int n);
 
-int dAx_eq_b_LU_noLapack(double *A, double *B, double *x, int n);
-
-#endif /* _LEVMAR_H_ */
+        int n_;
+        int m_;
+    };
+} // levmar

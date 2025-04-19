@@ -7,23 +7,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find all source and header files in the current directory
-# file(GLOB SOURCE_FILES CONFIGURE_DEPENDS 
-#     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-#     "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
-# )
-# file(GLOB HEADER_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
-
 set(SOURCE_FILES
-    axb.cpp
-    lm.cpp
-    misc.cpp
+    levmar.cpp
+    levmar_utils.cpp
     main.cpp
     )
 
 set(HEADER_FILES
     levmar.h
-    misc.h
+    levmar_utils.h
 )
 
 # Generate executable with all source and header files

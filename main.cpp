@@ -3,7 +3,7 @@
 
 
 #include "levmar.h"
-
+#include "levmar_utils.h"
 
 constexpr double ROSD = 105.0;
 
@@ -53,7 +53,11 @@ void test_ross()
     {
         double p[] = { -1.2, 1.0 };
         const double expected[] = { 0.553823321867, 0.305535016043 };
-        int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+        //int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+        levmar::LevMar levmar(n, m);
+        int ret = levmar.dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobianlevmar
+        //int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+
         std::cout << std::setprecision(12);
         std::cout << "differencial Jacobian" << std::endl;
         for (auto i = 0; i < m; ++i)
@@ -110,7 +114,9 @@ void test_osborne()
         std::cout << "Osborne differencial Jacobian" << std::endl;
         double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
         const double expected[] = { 0.375410053359,1.93584689416,-1.4646871224,0.0128675347011,0.0221227000131 };
-        int ret = dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+        levmar::LevMar levmar(n, m);
+        int ret = levmar.dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
+        //int ret = dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
         for (auto i = 0; i < m; ++i)
             //std::cout << "p[" << i << "] = " << p[i] << ", diff = " << p[i] - expected[i] << std::endl;
             check_value(p[i], expected[i]);
