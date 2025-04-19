@@ -13,7 +13,7 @@ using levmar::Real;
  * More details on blocking can be found at
  * http://www-2.cs.cmu.edu/afs/cs/academic/class/15213-f02/www/R07/section_a/Recitation07-SectionA.pdf
  */
-void levmar::dlevmar_trans_mat_mat_mult(Real* a, Real* b, int numPoints, int numParams)
+void levmar::dlevmar_trans_mat_mat_mult(RealPtr a, RealPtr b, int numPoints, int numParams)
 {
     Real sum, * bim, * akm;
     constexpr int bsize = MEMORY_BLOCK_SIZE;
@@ -87,13 +87,13 @@ void levmar::dlevmar_trans_mat_mat_mult(Real* a, Real* b, int numPoints, int num
 
 /* forward finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_forw_jac_approx(
-    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
+    std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
     /* function to differentiate */
-    Real* p,              /* I: current parameter estimate, mx1 */
-    Real* hx,             /* I: func evaluated at p, i.e. hx=func(p), nx1 */
-    Real* hxx,            /* W/O: work array for evaluating func(p+delta), nx1 */
-    Real delta,           /* increment for computing the Jacobian */
-    Real* jac,            /* O: array for storing approximated Jacobian, nxm */
+    RealPtr p,              /* I: current parameter estimate, mx1 */
+    RealPtr hx,             /* I: func evaluated at p, i.e. hx=func(p), nx1 */
+    RealPtr hxx,            /* W/O: work array for evaluating func(p+delta), nx1 */
+    Real    delta,          /* increment for computing the Jacobian */
+    RealPtr jac,            /* O: array for storing approximated Jacobian, nxm */
     int numParams,
     int numPoints)
 {
@@ -123,13 +123,13 @@ void levmar::dlevmar_fdif_forw_jac_approx(
 
 /* central finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_cent_jac_approx(
-    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
+    std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
     /* function to differentiate */
-    Real* p,              /* I: current parameter estimate, mx1 */
-    Real* hxm,            /* W/O: work array for evaluating func(p-delta), nx1 */
-    Real* hxp,            /* W/O: work array for evaluating func(p+delta), nx1 */
-    Real delta,           /* increment for computing the Jacobian */
-    Real* jac,            /* O: array for storing approximated Jacobian, nxm */
+    RealPtr p,              /* I: current parameter estimate, mx1 */
+    RealPtr hxm,            /* W/O: work array for evaluating func(p-delta), nx1 */
+    RealPtr hxp,            /* W/O: work array for evaluating func(p+delta), nx1 */
+    Real   delta,           /* increment for computing the Jacobian */
+    RealPtr jac,            /* O: array for storing approximated Jacobian, nxm */
     int numParams,
     int numPoints)
 {
@@ -165,7 +165,7 @@ void levmar::dlevmar_fdif_cent_jac_approx(
  * stalls and increase instruction-level parallelism; see http://www.abarnett.demon.co.uk/tutorial.html
  */
 
-Real levmar::dlevmar_L2nrmxmy(Real* e, Real* x, Real* y, int numPoints)
+Real levmar::dlevmar_L2nrmxmy(Real* e, ConstPtr x, ConstPtr y, int numPoints)
 {
     constexpr int blocksize = 8;
     constexpr int bpwr = 3; /* 8=2^3 */

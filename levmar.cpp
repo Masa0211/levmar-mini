@@ -40,16 +40,29 @@ levmar::LevMar::LevMar(int numParams, int numPoints)
   * the aid of finite differences (forward or central, see the comment for the opts argument)
   */
 int levmar::LevMar::dlevmar_dif(
-    std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-    Real* p,             /* I/O: initial parameter estimates. On output has the estimated solution */
-    Real* x,             /* I: measurement vector. NULL implies a zero vector */
-    int itmax,           /* I: maximum number of iterations */
-    const Options& opts, /* I: options for the minimization */
-    bool updateInfo)     /* I: if true, update the info_ structure with the results of the minimization */
-    // Real* covar)         /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
+    std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
+    std::vector<Real>& params,             /* I/O: initial parameter estimates. On output has the estimated solution */
+    const std::vector<Real>& samplePoints, /* I: measurement vector. NULL implies a zero vector */
+    int itmax,                               /* I: maximum number of iterations */
+    const Options& opts,                     /* I: options for the minimization */
+    bool updateInfo)                         /* I: if true, update the info_ structure with the results of the minimization */
+    // Real* covar)                          /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
 {
     const int numParams = numParams_; // parameter vector dimension (i.e. #unknowns)
     const int numPoints = numPoints_; // measurement vector dimension
+    if (numParams != params.size())
+    {
+        std::cerr << "Inconsistent number of params" << std::endl;
+        throw;
+    }
+    if (numPoints != samplePoints.size())
+    {
+        std::cerr << "Inconsistent number of sample points" << std::endl;
+        throw;
+    }
+
+    const auto p = params.data();
+    const auto x = samplePoints.data();
 
     int i, j, k, l;
     int issolved;
@@ -358,7 +371,7 @@ int levmar::LevMar::dlevmar_dif(
  * A call with NULL as the first argument forces this memory to be released.
  */
 
-int levmar::LevMar::dAx_eq_b_LU(Real* A, Real* B, Real* x, int numParams)
+int levmar::LevMar::dAx_eq_b_LU(ConstPtr A, ConstPtr B, RealPtr x, int numParams)
 {
     if (!A)
         return 1; /* NOP */

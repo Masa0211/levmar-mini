@@ -44,10 +44,10 @@ void test_ross()
 
     int numParams = 2;
     int numPoints = 2;
-    double x[] = { 0.0, 0.0 };
+    std::vector<double> x = { 0.0, 0.0 };
 
     {
-        double p[] = { -1.2, 1.0 };
+        std::vector<double> p = { -1.2, 1.0 };
         const double expected[] = { 0.553823321867, 0.305535016043 };
         levmar::LevMar levmar(numParams, numPoints);
 
@@ -102,7 +102,7 @@ void test_osborne()
 {
     using namespace levmar;
 
-    double x33[] = {
+    std::vector<double> x33 = {
       8.44E-1, 9.08E-1, 9.32E-1, 9.36E-1, 9.25E-1, 9.08E-1, 8.81E-1,
       8.5E-1, 8.18E-1, 7.84E-1, 7.51E-1, 7.18E-1, 6.85E-1, 6.58E-1,
       6.28E-1, 6.03E-1, 5.8E-1, 5.58E-1, 5.38E-1, 5.22E-1, 5.06E-1,
@@ -119,7 +119,7 @@ void test_osborne()
 
     {
         std::cout << "Osborne differencial Jacobian" << std::endl;
-        double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
+        std::vector<double> p = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
         const double expected[] = { 0.375410053359,1.93584689416,-1.4646871224,0.0128675347011,0.0221227000131 };
         levmar::LevMar levmar(numParams, numPoints);
 

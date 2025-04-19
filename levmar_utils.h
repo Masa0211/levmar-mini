@@ -6,6 +6,8 @@
 namespace levmar
 {
     using Real = double;
+    using RealPtr = Real*;
+    using ConstPtr = const Real*;
 
     /* block size for cache-friendly matrix-matrix multiply. It should be
      * such that __BLOCKSZ__^2*sizeof(LM_REAL) is smaller than the CPU (L1)
@@ -26,22 +28,22 @@ namespace levmar
     //constexpr Real ONE_THIRD = 1.0 / 3.0;
 
     /* blocking-based matrix multiply */
-    void dlevmar_trans_mat_mat_mult(double* a, double* b, int numPoints, int numParams);
+    void dlevmar_trans_mat_mat_mult(RealPtr a, RealPtr b, int numPoints, int numParams);
 
     /* forward finite differences */
     void dlevmar_fdif_forw_jac_approx(
-        std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-        double* p, double* hx, double* hxx, double delta,
-        double* jac, int numParams, int numPoints);
+        std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
+        RealPtr p, RealPtr hx, RealPtr hxx, Real delta,
+        RealPtr jac, int numParams, int numPoints);
 
     /* central finite differences */
     void dlevmar_fdif_cent_jac_approx(
-        std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-        double* p, double* hxm, double* hxp, double delta,
-        double* jac, int numParams, int numPoints);
+        std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
+        RealPtr p, RealPtr hxm, RealPtr hxp, Real delta,
+        RealPtr jac, int numParams, int numPoints);
 
     /* e=x-y and ||e|| */
-    double dlevmar_L2nrmxmy(double* e, double* x, double* y, int numPoints);
+    double dlevmar_L2nrmxmy(RealPtr e, ConstPtr x, ConstPtr y, int numPoints);
 
     /* covariance of LS fit */
     int dlevmar_covar(double* JtJ, double* C, double sumsq, int numParams, int numPoints);

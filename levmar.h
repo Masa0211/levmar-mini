@@ -29,6 +29,9 @@
 namespace levmar
 {
     using Real = double;
+    using RealPtr = Real*;
+    using ConstPtr = const Real*;
+
     constexpr int LM_OPTS_SZ = 5;
     constexpr int LM_INFO_SZ = 10;
     constexpr int LM_ERROR = -1;
@@ -89,8 +92,10 @@ namespace levmar
         );
 
         int dlevmar_dif(
-            std::function<void(Real*, Real*, int numParams, int numPoints)> func,
-            double* p, double* x, int itmax,
+            std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
+            std::vector<Real>& params,
+            const std::vector<Real>& samplePoints,
+            int itmax,
             const Options& opts,
             bool updateInfo = false);
             // double* covar = nullptr);
@@ -107,13 +112,13 @@ namespace levmar
             return 4 * (numPoints) + 4 * (numParams) + (numPoints) * (numParams) + (numParams) * (numParams);
         }
 
-        int dAx_eq_b_LU(double* A, double* B, double* x, int numPoints);
+        int dAx_eq_b_LU(ConstPtr A, ConstPtr B, RealPtr x, int numPoints);
 
         int numParams_;
         int numPoints_;
-        std::vector<double> luBuffer_; // m * m matrix and m vector
+        std::vector<Real> luBuffer_; // m * m matrix and m vector
         std::vector<int> luIdx_; // m vector
-        std::vector<double> lmWork_; // memory for levmar main algorithm
+        std::vector<Real> lmWork_; // memory for levmar main algorithm
 
         Info info_;
     };
