@@ -331,9 +331,6 @@ int levmar::dlevmar_covar(Real* JtJ, Real* C, Real sumsq, int numParams, int num
  */
 int levmar::dlevmar_LUinverse(Real* A, Real* B, int numParams)
 {
-    void* buf = NULL;
-    int buf_sz = 0;
-
     int i, j, k, l;
     int* idx, maxi = -1, idx_sz, a_sz, x_sz, work_sz;
     Real* a, * x, * work, max, sum, tmp;

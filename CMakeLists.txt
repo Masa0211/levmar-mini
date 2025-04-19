@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(levmar_mini CXX C)  # Note: Added C language support
+project(levmar_mini CXX)
 
 set(PROJECT_VERSION 1.0)
 set(CMAKE_CXX_STANDARD 20)
@@ -27,6 +27,15 @@ add_executable(levmar_mini
 target_include_directories(levmar_mini
     PUBLIC
     ${PROJECT_SOURCE_DIR}
+)
+
+target_compile_options(levmar_mini PRIVATE
+    # For GCC or Clang
+    $<$<CXX_COMPILER_ID:GNU>: -Wall -Wextra>
+    $<$<CXX_COMPILER_ID:GNU>: -Wall -Wextra>
+    
+    # For MSVC
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT levmar_mini)

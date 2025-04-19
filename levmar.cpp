@@ -91,7 +91,6 @@ int levmar::LevMar::dlevmar_dif(
     const auto p = params.data();
     const auto x = samplePoints.data();
 
-    int i, j, k, l;
     int issolved;
     /* temp work arrays */
     Real* e,          /* nx1 */
@@ -147,6 +146,7 @@ int levmar::LevMar::dlevmar_dif(
 
     nu = 20; /* force computation of J */
 
+    int k;
     for (k = 0; k < itmax && !stop; ++k) {
         /* Note that p and e have been updated at a previous iteration */
 
@@ -194,21 +194,20 @@ int levmar::LevMar::dlevmar_dif(
                  * Note that the non-blocking algorithm is faster on small
                  * problems since in this case it avoids the overheads of blocking.
                  */
-                int l;
                 Real alpha, * jaclm, * jacTjacim;
 
                 /* looping downwards saves a few computations */
-                for (i = numParams * numParams; i-- > 0; )
+                for (auto i = numParams * numParams; i-- > 0; )
                     jacTjac[i] = 0.0;
-                for (i = numParams; i-- > 0; )
+                for (auto i = numParams; i-- > 0; )
                     jacTe[i] = 0.0;
 
-                for (l = numPoints; l-- > 0; ) {
+                for (auto l = numPoints; l-- > 0; ) {
                     jaclm = jac + l * numParams;
-                    for (i = numParams; i-- > 0; ) {
+                    for (auto i = numParams; i-- > 0; ) {
                         jacTjacim = jacTjac + i * numParams;
                         alpha = jaclm[i]; //jac[l*numParams+i];
-                        for (j = i + 1; j-- > 0; ) /* j<=i computes lower triangular part only */
+                        for (auto j = i + 1; j-- > 0; ) /* j<=i computes lower triangular part only */
                             jacTjacim[j] += jaclm[j] * alpha; //jacTjac[i*numParams+j]+=jac[l*numParams+j]*alpha
 
                         /* J^T e */
@@ -216,8 +215,8 @@ int levmar::LevMar::dlevmar_dif(
                     }
                 }
 
-                for (i = numParams; i-- > 0; ) /* copy to upper part */
-                    for (j = i + 1; j < numParams; ++j)
+                for (auto i = numParams; i-- > 0; ) /* copy to upper part */
+                    for (auto j = i + 1; j < numParams; ++j)
                         jacTjac[i * numParams + j] = jacTjac[j * numParams + i];
             }
             else { // this is a large problem
@@ -226,19 +225,20 @@ int levmar::LevMar::dlevmar_dif(
                 dlevmar_trans_mat_mat_mult(jac, jacTjac, numPoints, numParams);
 
                 /* cache efficient computation of J^T e */
-                for (i = 0; i < numParams; ++i)
+                for (auto i = 0; i < numParams; ++i)
                     jacTe[i] = 0.0;
 
-                for (i = 0; i < numPoints; ++i) {
-                    Real* jacrow;
-
-                    for (l = 0, jacrow = jac + i * numParams, tmp = e[i]; l < numParams; ++l)
+                for (auto i = 0; i < numPoints; ++i) {
+                    Real* jacrow = jac + i * numParams;
+                    tmp = e[i];
+                    for (auto l = 0; l < numParams; ++l)
                         jacTe[l] += jacrow[l] * tmp;
                 }
             }
 
             /* Compute ||J^T e||_inf and ||p||^2 */
-            for (i = 0, p_L2 = jacTe_inf = 0.0; i < numParams; ++i) {
+            p_L2 = jacTe_inf = 0.0;
+            for (auto i = 0; i < numParams; ++i) {
                 if (jacTe_inf < (tmp = std::abs(jacTe[i]))) jacTe_inf = tmp;
 
                 diag_jacTjac[i] = jacTjac[i * numParams + i]; /* save diagonal entries so that augmentation can be later canceled */
@@ -256,7 +256,8 @@ int levmar::LevMar::dlevmar_dif(
 
         /* compute initial damping factor */
         if (k == 0) {
-            for (i = 0, tmp = LM_REAL_MIN; i < numParams; ++i)
+            tmp = LM_REAL_MIN;
+            for (auto i = 0; i < numParams; ++i)
                 if (diag_jacTjac[i] > tmp) tmp = diag_jacTjac[i]; /* find max diagonal element */
             mu = tau * tmp;
         }
@@ -264,7 +265,7 @@ int levmar::LevMar::dlevmar_dif(
         /* determine increment using adaptive damping */
 
         /* augment normal equations */
-        for (i = 0; i < numParams; ++i)
+        for (auto i = 0; i < numParams; ++i)
             jacTjac[i * numParams + i] += mu;
 
         /* solve augmented equations */
@@ -273,7 +274,8 @@ int levmar::LevMar::dlevmar_dif(
 
         if (issolved) {
             /* compute p's new estimate and ||Dp||^2 */
-            for (i = 0, Dp_L2 = 0.0; i < numParams; ++i) {
+            Dp_L2 = 0.0;
+            for (auto i = 0; i < numParams; ++i) {
                 pDp[i] = p[i] + (tmp = Dp[i]);
                 Dp_L2 += tmp * tmp;
             }
@@ -306,18 +308,20 @@ int levmar::LevMar::dlevmar_dif(
 
             dF = p_eL2 - pDp_eL2;
             if (updp || dF > 0) { /* update jac */
-                for (i = 0; i < numPoints; ++i) {
-                    for (l = 0, tmp = 0.0; l < numParams; ++l)
+                for (auto i = 0; i < numPoints; ++i) {
+                    tmp = 0.0;
+                    for (auto l = 0; l < numParams; ++l)
                         tmp += jac[i * numParams + l] * Dp[l]; /* (J * Dp)[i] */
                     tmp = (wrk[i] - hx[i] - tmp) / Dp_L2; /* (f(p+dp)[i] - f(p)[i] - (J * Dp)[i])/(dp^T*dp) */
-                    for (j = 0; j < numParams; ++j)
+                    for (auto j = 0; j < numParams; ++j)
                         jac[i * numParams + j] += tmp * Dp[j];
                 }
                 ++updjac;
                 newjac = 1;
             }
 
-            for (i = 0, dL = 0.0; i < numParams; ++i)
+            dL = 0.0;
+            for (auto i = 0; i < numParams; ++i)
                 dL += Dp[i] * (mu * Dp[i] + jacTe[i]);
 
             if (dL > 0.0 && dF > 0.0) { /* reduction in error, increment is accepted */
@@ -326,10 +330,10 @@ int levmar::LevMar::dlevmar_dif(
                 mu = mu * ((tmp >= ONE_THIRD) ? tmp : ONE_THIRD);
                 nu = 2;
 
-                for (i = 0; i < numParams; ++i) /* update p's estimate */
+                for (auto i = 0; i < numParams; ++i) /* update p's estimate */
                     p[i] = pDp[i];
 
-                for (i = 0; i < numPoints; ++i) { /* update e, hx and ||e||_2 */
+                for (auto i = 0; i < numPoints; ++i) { /* update e, hx and ||e||_2 */
                     e[i] = wrk2[i]; //x[i]-wrk[i];
                     hx[i] = wrk[i];
                 }
@@ -351,18 +355,19 @@ int levmar::LevMar::dlevmar_dif(
         }
         nu = nu2;
 
-        for (i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
+        for (auto i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
             jacTjac[i * numParams + i] = diag_jacTjac[i];
     }
 
     if (k >= itmax) stop = 3;
 
-    for (i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
+    for (auto i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
         jacTjac[i * numParams + i] = diag_jacTjac[i];
 
     if (updateInfo)
     {
-        for (i = 0, tmp = LM_REAL_MIN; i < numParams; ++i)
+        tmp = LM_REAL_MIN;
+        for (auto i = 0; i < numParams; ++i)
             if (tmp < jacTjac[i * numParams + i]) tmp = jacTjac[i * numParams + i];
 
         Info infoOut = {
@@ -473,8 +478,8 @@ int levmar::LevMar::dAx_eq_b_LU(ConstPtr A, ConstPtr B, RealPtr x, int numParams
         auto sum = x[j];
         x[j] = x[i];
         if (k != 0)
-            for (auto j = k - 1; j < i; ++j)
-                sum -= a[i * numParams + j] * x[j];
+            for (auto jj = k - 1; jj < i; ++jj)
+                sum -= a[i * numParams + jj] * x[jj];
         else
             if (sum != 0.0)
                 k = i + 1;

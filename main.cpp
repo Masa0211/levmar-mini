@@ -8,13 +8,13 @@
 constexpr double ROSD = 105.0;
 
 /* Rosenbrock function, global minimum at (1, 1) */
-void ros(double* p, double* x, int numParams, int numPoints, void* data)
+void ros(double* p, double* x, int, int numPoints)
 {
     for (auto i = 0; i < numPoints; ++i)
         x[i] = ((1.0 - p[0]) * (1.0 - p[0]) + ROSD * (p[1] - p[0] * p[0]) * (p[1] - p[0] * p[0]));
 }
 
-void jacros(double* p, double* jac, int numParams, int numPoints, void* data)
+void jacros(double* p, double* jac, int, int numPoints)
 {
     for (auto i = 0, j = 0; i < numPoints; ++i) {
         jac[j++] = (-2 + 2 * p[0] - 4 * ROSD * (p[1] - p[0] * p[0]) * p[0]);
@@ -52,14 +52,14 @@ void test_ross()
         levmar::LevMar levmar(numParams, numPoints);
 
         auto targetFunc = [](double* p, double* x, int numParams, int numPoints) {
-            ros(p, x, numParams, numPoints, nullptr);
+            ros(p, x, numParams, numPoints);
         };
 
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = -1.2; p[1] = 1.0;
-            int ret = levmar.dlevmar_dif(targetFunc, p, x, 1000, opts, info);  // no Jacobianlevmar
+            levmar.dlevmar_dif(targetFunc, p, x, 1000, opts, info);  // no Jacobianlevmar
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
@@ -75,7 +75,7 @@ void test_ross()
 
 
 /* Osborne's problem, minimum at (0.3754, 1.9358, -1.4647, 0.0129, 0.0221) */
-void osborne(double* p, double* x, int numParams, int numPoints, void* data)
+void osborne(double* p, double* x, int, int numPoints)
 {
     for (auto i = 0; i < numPoints; ++i) {
         const double t = 10 * i;
@@ -83,7 +83,7 @@ void osborne(double* p, double* x, int numParams, int numPoints, void* data)
     }
 }
 
-void jacosborne(double* p, double* jac, int numParams, int numPoints, void* data)
+void jacosborne(double* p, double* jac, int, int numPoints)
 {
     for (auto i = 0, j = 0; i < numPoints; ++i) {
         const double t = 10 * i;
@@ -124,14 +124,14 @@ void test_osborne()
         levmar::LevMar levmar(numParams, numPoints);
 
         auto targetFunc = [](double* p, double* x, int numParams, int numPoints) {
-            osborne(p, x, numParams, numPoints, nullptr);
+            osborne(p, x, numParams, numPoints);
             };
 
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = 0.5; p[1] = 1.5; p[2] = -1.0; p[3] = 1.0E-2; p[4] = 2.0E-2;
-            int ret = levmar.dlevmar_dif(targetFunc, p, x33, 1000, opts, info);  // no Jacobian
+            levmar.dlevmar_dif(targetFunc, p, x33, 1000, opts, info);  // no Jacobian
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
