@@ -1,4 +1,3 @@
-#pragma once
 /*
 ////////////////////////////////////////////////////////////////////////////////////
 //
@@ -6,6 +5,8 @@
 //  Copyright (C) 2004  Manolis Lourakis (lourakis at ics forth gr)
 //  Institute of Computer Science, Foundation for Research & Technology - Hellas
 //  Heraklion, Crete, Greece.
+//
+//  This implementation Copyright (C) 2025 Masahiro Ohta
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -17,8 +18,14 @@
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
+//  You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+//
 ////////////////////////////////////////////////////////////////////////////////////
 */
+
+#pragma once
 
 #include <cmath>
 #include <vector>
