@@ -52,11 +52,15 @@ void test_ross()
         //int ret = dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL, NULL);  // no Jacobian
         levmar::LevMar levmar(n, m);
 
+        auto targetFunc = [](double* p, double* x, int m, int n) {
+            ros(p, x, m, n, nullptr);
+        };
+
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = -1.2; p[1] = 1.0;
-            int ret = levmar.dlevmar_dif(ros, p, x, m, n, 1000, opts, info, NULL, NULL);  // no Jacobianlevmar
+            int ret = levmar.dlevmar_dif(targetFunc, p, x, m, n, 1000, opts, info, NULL);  // no Jacobianlevmar
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
@@ -119,11 +123,16 @@ void test_osborne()
         double p[] = { 0.5, 1.5, -1.0, 1.0E-2, 2.0E-2 };
         const double expected[] = { 0.375410053359,1.93584689416,-1.4646871224,0.0128675347011,0.0221227000131 };
         levmar::LevMar levmar(n, m);
+
+        auto targetFunc = [](double* p, double* x, int m, int n) {
+            osborne(p, x, m, n, nullptr);
+            };
+
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         for (int i = 0; i < 1000; ++i)
         {
             p[0] = 0.5; p[1] = 1.5; p[2] = -1.0; p[3] = 1.0E-2; p[4] = 2.0E-2;
-            int ret = levmar.dlevmar_dif(osborne, p, x33, m, n, 1000, opts, info, NULL, NULL);  // no Jacobian
+            int ret = levmar.dlevmar_dif(targetFunc, p, x33, m, n, 1000, opts, info, NULL);  // no Jacobian
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;

@@ -49,7 +49,7 @@ void levmar::dlevmar_trans_mat_mat_mult(Real* a, Real* b, int n, int m)
 
 /* forward finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_forw_jac_approx(
-    void (*func)(Real* p, Real* hx, int m, int n, void* adata),
+    std::function<void(Real*, Real*, int m, int n)> func,
     /* function to differentiate */
     Real* p,              /* I: current parameter estimate, mx1 */
     Real* hx,             /* I: func evaluated at p, i.e. hx=func(p), nx1 */
@@ -57,8 +57,7 @@ void levmar::dlevmar_fdif_forw_jac_approx(
     Real delta,           /* increment for computing the Jacobian */
     Real* jac,            /* O: array for storing approximated Jacobian, nxm */
     int m,
-    int n,
-    void* adata)
+    int n)
 {
     Real tmp;
     Real d;
@@ -73,7 +72,7 @@ void levmar::dlevmar_fdif_forw_jac_approx(
         tmp = p[j];
         p[j] += d;
 
-        (*func)(p, hxx, m, n, adata);
+        func(p, hxx, m, n);
 
         p[j] = tmp; /* restore */
 
@@ -86,7 +85,7 @@ void levmar::dlevmar_fdif_forw_jac_approx(
 
 /* central finite difference approximation to the Jacobian of func */
 void levmar::dlevmar_fdif_cent_jac_approx(
-    void (*func)(Real* p, Real* hx, int m, int n, void* adata),
+    std::function<void(Real*, Real*, int m, int n)> func,
     /* function to differentiate */
     Real* p,              /* I: current parameter estimate, mx1 */
     Real* hxm,            /* W/O: work array for evaluating func(p-delta), nx1 */
@@ -94,8 +93,7 @@ void levmar::dlevmar_fdif_cent_jac_approx(
     Real delta,           /* increment for computing the Jacobian */
     Real* jac,            /* O: array for storing approximated Jacobian, nxm */
     int m,
-    int n,
-    void* adata)
+    int n)
 {
     Real tmp;
     Real d;
@@ -109,10 +107,10 @@ void levmar::dlevmar_fdif_cent_jac_approx(
 
         tmp = p[j];
         p[j] -= d;
-        (*func)(p, hxm, m, n, adata);
+        func(p, hxm, m, n);
 
         p[j] = tmp + d;
-        (*func)(p, hxp, m, n, adata);
+        func(p, hxp, m, n);
         p[j] = tmp; /* restore */
 
         d = 0.5 / d; /* invert so that divisions can be carried out faster as multiplications */

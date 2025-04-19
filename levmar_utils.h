@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <functional>
 
 namespace levmar
 {
@@ -28,14 +29,16 @@ namespace levmar
     void dlevmar_trans_mat_mat_mult(double* a, double* b, int n, int m);
 
     /* forward finite differences */
-    void dlevmar_fdif_forw_jac_approx(void (*func)(double* p, double* hx, int m, int n, void* adata),
+    void dlevmar_fdif_forw_jac_approx(
+        std::function<void(Real*, Real*, int m, int n)> func,
         double* p, double* hx, double* hxx, double delta,
-        double* jac, int m, int n, void* adata);
+        double* jac, int m, int n);
 
     /* central finite differences */
-    void dlevmar_fdif_cent_jac_approx(void (*func)(double* p, double* hx, int m, int n, void* adata),
+    void dlevmar_fdif_cent_jac_approx(
+        std::function<void(Real*, Real*, int m, int n)> func,
         double* p, double* hxm, double* hxp, double delta,
-        double* jac, int m, int n, void* adata);
+        double* jac, int m, int n);
 
     /* e=x-y and ||e|| */
     double dlevmar_L2nrmxmy(double* e, double* x, double* y, int n);

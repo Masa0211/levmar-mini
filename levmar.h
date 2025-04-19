@@ -23,6 +23,7 @@
 #include <cmath>
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace levmar
 {
@@ -44,9 +45,9 @@ namespace levmar
         );
 
         int dlevmar_dif(
-            void (*func)(double* p, double* hx, int m, int n, void* adata),
+            std::function<void(Real*, Real*, int m, int n)> func,
             double* p, double* x, int m, int n, int itmax, double* opts,
-            double* info, double* covar, void* adata);
+            double* info, double* covar);
 
 
     private:

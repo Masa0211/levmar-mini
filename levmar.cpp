@@ -39,7 +39,7 @@ levmar::LevMar::LevMar(int m, int n)
   * the aid of finite differences (forward or central, see the comment for the opts argument)
   */
 int levmar::LevMar::dlevmar_dif(
-    void (*func)(Real* p, Real* hx, int m, int n, void* adata), /* functional relation describing measurements. A p \in R^m yields a \hat{x} \in  R^n */
+    std::function<void(Real*, Real*, int m, int n)> func,
     Real* p,         /* I/O: initial parameter estimates. On output has the estimated solution */
     Real* x,         /* I: measurement vector. NULL implies a zero vector */
     int m,              /* I: parameter vector dimension (i.e. #unknowns) */
@@ -67,10 +67,7 @@ int levmar::LevMar::dlevmar_dif(
     * info[8]= # Jacobian evaluations
     * info[9]= # linear systems solved, i.e. # attempts for reducing error
     */
-    Real* covar,    /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
-    void* adata)       /* pointer to possibly additional data, passed uninterpreted to func.
-                        * Set to NULL if not needed
-                        */
+    Real* covar)    /* O: Covariance matrix corresponding to LS solution; mxm. Set to NULL if not needed. */
 {
     int i, j, k, l;
     int issolved;
@@ -139,7 +136,7 @@ int levmar::LevMar::dlevmar_dif(
     wrk2 = wrk + n;
 
     /* compute e=x - f(p) and its L2 norm */
-    (*func)(p, hx, m, n, adata); nfev = 1;
+    func(p, hx, m, n); nfev = 1;
     /* ### e=x-hx, p_eL2=||e|| */
     p_eL2 = dlevmar_L2nrmxmy(e, x, hx, n);
     init_p_eL2 = p_eL2;
@@ -161,11 +158,11 @@ int levmar::LevMar::dlevmar_dif(
 
         if ((updp && nu > 16) || updjac == K) { /* compute difference approximation to J */
             if (using_ffdif) { /* use forward differences */
-                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, m, n, adata);
+                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, m, n);
                 ++njap; nfev += m;
             }
             else { /* use central differences */
-                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, m, n, adata);
+                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, m, n);
                 ++njap; nfev += 2 * m;
             }
             nu = 2; updjac = 0; updp = 0; newjac = 1;
@@ -291,7 +288,7 @@ int levmar::LevMar::dlevmar_dif(
                 break;
             }
 
-            (*func)(pDp, wrk, m, n, adata); ++nfev; /* evaluate function at p + Dp */
+            func(pDp, wrk, m, n); ++nfev; /* evaluate function at p + Dp */
             /* compute ||e(pDp)||_2 */
             /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
             pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, n);
