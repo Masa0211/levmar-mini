@@ -38,6 +38,9 @@ namespace levmar
     using Real = double;
     using RealPtr = Real*;
     using ConstPtr = const Real*;
+    using RealVector = std::vector<Real>;
+    using RealVectorRef = std::vector<Real>&;
+    using ConstRealVectorRef = const std::vector<Real>&;
 
     constexpr int LM_OPTS_SZ = 5;
     constexpr int LM_INFO_SZ = 10;
@@ -91,6 +94,7 @@ namespace levmar
             int nfev = 0; // # function evaluations
             int njap = 0; // # Jacobian evaluations
             int nlss = 0; // # linear systems solved, i.e. # attempts for reducing error
+            int res = 0; // result of the minimization
         };
 
         LevMar(
@@ -98,18 +102,22 @@ namespace levmar
             int numPoints  // (= n) number of data points/observations
         );
 
-        int dlevmar_dif(
-            std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
-            std::vector<Real>& params,
-            const std::vector<Real>& samplePoints,
+        // dlevmar_dif function
+        void optimize(
+            std::function<void(RealVectorRef, RealVectorRef, int numParams, int numPoints)> func,
+            RealVectorRef params,
+            ConstRealVectorRef samplePoints,
             int itmax,
             const Options& opts,
             bool updateInfo = false);
-            // double* covar = nullptr);
 
         const auto& info() const noexcept
         {
             return info_;
+        }
+        const bool success() const noexcept
+        {
+            return info_.res >= 0;
         }
 
     private:
@@ -121,7 +129,7 @@ namespace levmar
             int numPoints // (= n) measurement vector dimension
         ) const noexcept
         {
-            return 4 * (numPoints) + 4 * (numParams) + (numPoints) * (numParams) + (numParams) * (numParams);
+            return numPoints + 3 * numParams + (numPoints * numParams) + (numParams * numParams);
         }
 
         int dAx_eq_b_LU(ConstPtr A, ConstPtr B, RealPtr x, int numPoints);
@@ -131,6 +139,10 @@ namespace levmar
         std::vector<Real> luBuffer_; // m * m matrix and m vector
         std::vector<int> luIdx_; // m vector
         std::vector<Real> lmWork_; // memory for levmar main algorithm
+        std::vector<Real> lmHx_; // memory for levmar main algorithm
+        std::vector<Real> lmpDp_; // memory for levmar main algorithm
+        std::vector<Real> lmWrk1_; // memory for levmar main algorithm
+        std::vector<Real> lmWrk2_; // memory for levmar main algorithm
 
         Info info_;
     };

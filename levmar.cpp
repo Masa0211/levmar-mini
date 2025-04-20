@@ -39,6 +39,10 @@ levmar::LevMar::LevMar(int numParams, int numPoints)
     , luBuffer_(numParams * numParams + numParams)
     , luIdx_(numParams)
     , lmWork_(workSize(numParams, numPoints))
+    , lmHx_(numPoints)
+    , lmpDp_(numParams)
+    , lmWrk1_(numPoints)
+    , lmWrk2_(numPoints)
     , info_()
 {
     if (numParams > numPoints)
@@ -66,10 +70,10 @@ levmar::LevMar::LevMar(int numParams, int numPoints)
  /* Secant version of the dlevmar_der() function above: the Jacobian is approximated with
   * the aid of finite differences (forward or central, see the comment for the opts argument)
   */
-int levmar::LevMar::dlevmar_dif(
-    std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
-    std::vector<Real>& params,             /* I/O: initial parameter estimates. On output has the estimated solution */
-    const std::vector<Real>& samplePoints, /* I: measurement vector. NULL implies a zero vector */
+void levmar::LevMar::optimize(
+    std::function<void(RealVectorRef, RealVectorRef, int numParams, int numPoints)> func,
+    RealVectorRef params,             /* I/O: initial parameter estimates. On output has the estimated solution */
+    ConstRealVectorRef samplePoints, /* I: measurement vector. NULL implies a zero vector */
     int itmax,                               /* I: maximum number of iterations */
     const Options& opts,                     /* I: options for the minimization */
     bool updateInfo)                         /* I: if true, update the info_ structure with the results of the minimization */
@@ -127,18 +131,19 @@ int levmar::LevMar::dlevmar_dif(
 
     /* set up work arrays */
     e = lmWork_.data();
-    hx = e + numPoints;
-    jacTe = hx + numPoints;
+    jacTe = e + numPoints;
     jac = jacTe + numParams;
     jacTjac = jac + nm;
     Dp = jacTjac + numParams * numParams;
     diag_jacTjac = Dp + numParams;
-    pDp = diag_jacTjac + numParams;
-    wrk = pDp + numParams;
-    wrk2 = wrk + numPoints;
+
+    hx = lmHx_.data();
+    pDp = lmpDp_.data();
+    wrk = lmWrk1_.data();
+    wrk2 = lmWrk2_.data();
 
     /* compute e=x - f(p) and its L2 norm */
-    func(p, hx, numParams, numPoints); nfev = 1;
+    func(params, lmHx_, numParams, numPoints); nfev = 1;
     /* ### e=x-hx, p_eL2=||e|| */
     p_eL2 = dlevmar_L2nrmxmy(e, x, hx, numPoints);
     init_p_eL2 = p_eL2;
@@ -161,11 +166,11 @@ int levmar::LevMar::dlevmar_dif(
 
         if ((updp && nu > 16) || updjac == K) { /* compute difference approximation to J */
             if (using_ffdif) { /* use forward differences */
-                dlevmar_fdif_forw_jac_approx(func, p, hx, wrk, delta, jac, numParams, numPoints);
+                dlevmar_fdif_forw_jac_approx(func, params, hx, lmWrk1_, delta, jac, numParams, numPoints);
                 ++njap; nfev += numParams;
             }
             else { /* use central differences */
-                dlevmar_fdif_cent_jac_approx(func, p, wrk, wrk2, delta, jac, numParams, numPoints);
+                dlevmar_fdif_cent_jac_approx(func, params, lmWrk1_, lmWrk2_, delta, jac, numParams, numPoints);
                 ++njap; nfev += 2 * numParams;
             }
             nu = 2; updjac = 0; updp = 0; newjac = 1;
@@ -293,7 +298,7 @@ int levmar::LevMar::dlevmar_dif(
                 break;
             }
 
-            func(pDp, wrk, numParams, numPoints); ++nfev; /* evaluate function at p + Dp */
+            func(lmpDp_, lmWrk1_, numParams, numPoints); ++nfev; /* evaluate function at p + Dp */
             /* compute ||e(pDp)||_2 */
             /* ### wrk2=x-wrk, pDp_eL2=||wrk2|| */
             pDp_eL2 = dlevmar_L2nrmxmy(wrk2, x, wrk, numPoints);
@@ -364,6 +369,7 @@ int levmar::LevMar::dlevmar_dif(
     for (auto i = 0; i < numParams; ++i) /* restore diagonal J^T J entries */
         jacTjac[i * numParams + i] = diag_jacTjac[i];
 
+    const int res = (stop != 4 && stop != 7) ? k : LM_ERROR;
     if (updateInfo)
     {
         tmp = LM_REAL_MIN;
@@ -372,9 +378,13 @@ int levmar::LevMar::dlevmar_dif(
 
         Info infoOut = {
             init_p_eL2, p_eL2, jacTe_inf, Dp_L2, mu / tmp,
-            k, stop, nfev, njap, nlss
+            k, stop, nfev, njap, nlss, res
         };
         info_ = infoOut;
+    }
+    else
+    {
+        info_.res = res;
     }
 
     /* covariance matrix */
@@ -382,8 +392,6 @@ int levmar::LevMar::dlevmar_dif(
     // if (covar) {
     //     dlevmar_covar(jacTjac, covar, p_eL2, numParams, numPoints);
     // }
-
-    return (stop != 4 && stop != 7) ? k : LM_ERROR;
 
 } /* dlevmar_dif() */
 

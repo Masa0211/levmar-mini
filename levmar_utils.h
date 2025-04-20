@@ -35,6 +35,9 @@ namespace levmar
     using Real = double;
     using RealPtr = Real*;
     using ConstPtr = const Real*;
+    using RealVector = std::vector<Real>;
+    using RealVectorRef = std::vector<Real>&;
+    using ConstRealVectorRef = const std::vector<Real>&;
 
     /* block size for cache-friendly matrix-matrix multiply. It should be
      * such that __BLOCKSZ__^2*sizeof(LM_REAL) is smaller than the CPU (L1)
@@ -48,7 +51,7 @@ namespace levmar
 
     constexpr Real LM_REAL_EPSILON = DBL_EPSILON;
     constexpr Real LM_REAL_MAX = DBL_MAX;
-    constexpr Real LM_REAL_MIN = - DBL_MAX;
+    constexpr Real LM_REAL_MIN = -DBL_MAX;
 
     constexpr Real EPSILON = 1E-12;
     constexpr Real ONE_THIRD = 0.3333333334; /* 1.0/3.0 */
@@ -59,23 +62,23 @@ namespace levmar
 
     /* forward finite differences */
     void dlevmar_fdif_forw_jac_approx(
-        std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
-        RealPtr p, RealPtr hx, RealPtr hxx, Real delta,
+        std::function<void(RealVectorRef, RealVectorRef, int numParams, int numPoints)> func,
+        RealVectorRef p, RealPtr hx, RealVectorRef hxx, Real delta,
         RealPtr jac, int numParams, int numPoints);
 
     /* central finite differences */
     void dlevmar_fdif_cent_jac_approx(
-        std::function<void(RealPtr, RealPtr, int numParams, int numPoints)> func,
-        RealPtr p, RealPtr hxm, RealPtr hxp, Real delta,
+        std::function<void(RealVectorRef, RealVectorRef, int numParams, int numPoints)> func,
+        RealVectorRef p, RealVectorRef hxm, RealVectorRef hxp, Real delta,
         RealPtr jac, int numParams, int numPoints);
 
     /* e=x-y and ||e|| */
-    double dlevmar_L2nrmxmy(RealPtr e, ConstPtr x, ConstPtr y, int numPoints);
+    Real dlevmar_L2nrmxmy(RealPtr e, ConstPtr x, ConstPtr y, int numPoints);
 
     /* covariance of LS fit */
-    int dlevmar_covar(double* JtJ, double* C, double sumsq, int numParams, int numPoints);
+    int dlevmar_covar(RealPtr JtJ, RealPtr C, Real sumsq, int numParams, int numPoints);
 
     /* This function computes the inverse of A in B. A and B can coincide */
-    int dlevmar_LUinverse(Real* A, Real* B, int numParams);
+    int dlevmar_LUinverse(RealPtr A, RealPtr B, int numParams);
 
 }
