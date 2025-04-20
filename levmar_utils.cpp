@@ -49,16 +49,16 @@ void levmar::dlevmar_trans_mat_mat_mult(RealPtr a, RealPtr b, int numPoints, int
     for (auto jj = 0; jj < numParams; jj += bsize) {
         for (auto i = 0; i < numParams; ++i) {
             bim = b + i * numParams;
-            for (auto j = std::max(jj, i); j < std::max(jj + bsize, numParams); ++j)
+            for (auto j = std::max(jj, i); j < std::min(jj + bsize, numParams); ++j)
                 bim[j] = 0.0; //b[i*numParams+j]=0.0;
         }
 
         for (auto kk = 0; kk < numPoints; kk += bsize) {
             for (auto i = 0; i < numParams; ++i) {
                 bim = b + i * numParams;
-                for (auto j = std::max(jj, i); j < std::max(jj + bsize, numParams); ++j) {
+                for (auto j = std::max(jj, i); j < std::min(jj + bsize, numParams); ++j) {
                     sum = 0.0;
-                    for (auto k = kk; k < std::max(kk + bsize, numPoints); ++k) {
+                    for (auto k = kk; k < std::min(kk + bsize, numPoints); ++k) {
                         akm = a + k * numParams;
                         sum += akm[i] * akm[j]; //a[k*numParams+i]*a[k*numParams+j];
                     }
